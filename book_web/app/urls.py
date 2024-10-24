@@ -2,17 +2,22 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    #view books
+    # Xem tất cả sách
     path('books/', views.list_books, name='list_books'),
-    path('books/genre/<int:genre_id>/', views.get_books_by_genre, name='books_by_genre'),
-    path('books/author/<int:author_id>/', views.get_books_by_author, name='books_by_author'),
-    path('books/preference/<int:user_id>/', views.get_books_by_user_preference, name='books_by_preference'),
     
-    # path('books/<int:book_id>/reviews', views.get_book_reviews, name='book_reviews'),
-    
-    #show rating of books 
-    path('books/<int:book_id>/reviews/', views.get_reviews_for_book, name='get_reviews_for_book'),
-    
-    #add comment,  add
-    path('books/reviews/add/', views.add_review, name='add_review'),
+    # Xem sách theo tác giả
+    path('books/author/<str:author_name>/', views.books_by_author, name='books_by_author'),
+
+    # Xem sách theo thể loại
+    path('books/genre/<str:genre_name>/', views.books_by_genre, name='books_by_genre'),
+
+    # Xem đánh giá cho một cuốn sách
+    path('books/<int:book_id>/reviews/', views.book_reviews, name='book_reviews'),
+
+    # Thêm đánh giá cho sách
+    path('books/<int:book_id>/reviews/add/', views.add_review, name='add_review'),
+        
+    #add book
+    path('books/import/<str:genre_name>/', views.import_books_from_api, name='import_books_from_api'),
+
 ]
