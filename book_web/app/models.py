@@ -1,39 +1,30 @@
+# myapp/models.py
+
 from django.db import models
-from django.contrib.auth.models import User
-from django.db import models
+from django.utils.text import slugify
 
-
-class Author(models.Model):
-    name = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.name
-
-class Genre(models.Model):
-    name = models.CharField(max_length=255)
-
-    def __str__(self):
-        return self.name
-    
 class Book(models.Model):
-    title = models.CharField(max_length=255)
-    author = models.ForeignKey('Author', on_delete=models.CASCADE)
-    genre = models.ForeignKey('Genre', on_delete=models.CASCADE)
-    description = models.TextField(null=True, blank=True)
-    published_date = models.DateField(null=True, blank=True)
-    thumbnail = models.URLField(max_length=500, null=True, blank=True)  # Thêm trường thumbnail
+    title = models.CharField(max_length=500)
+    slug = models.SlugField(unique=True, blank=True, max_length=255)
+    author = models.CharField(max_length=255, null=True, blank=True)
+    download_link = models.URLField()
+    gutenberg_id = models.IntegerField(unique=True)
 
-
-    def __str__(self):
-        return self.title
-
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title)
+            slug = base_slug
+            counter = 1
+            while Book.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 class Review(models.Model):
-    book = models.ForeignKey(Book, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    rating = models.IntegerField()  # Điểm đánh giá
-    comment = models.TextField()    # Bình luận
-    created_at = models.DateTimeField(auto_now_add=True)  # Thời gian tạo
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveIntegerField(null=True, blank=True)  # Điểm đánh giá từ 1 đến 5
+    comment = models.TextField(null=True, blank=True)  # Nội dung bình luận
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'Review for {self.book.title} by {self.user.username}'
-    
+        return f"Review for {self.book.title} - Rating: {self.rating}"
