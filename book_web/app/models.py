@@ -1,6 +1,5 @@
 from django.db import models
-
-from django.db import models
+from django.contrib.auth.models import User
 
 class Book(models.Model):
     book_id = models.AutoField(primary_key=True)  # Tự động tăng ID cho sách
@@ -16,6 +15,13 @@ class Book(models.Model):
     create_at = models.DateTimeField(auto_now_add=True)  # Ngày tạo
     update_at = models.DateTimeField(auto_now=True)  # Ngày cập nhật
 
+class Review(models.Model):
+    book = models.ForeignKey(Book, related_name="reviews", on_delete=models.CASCADE)  # Liên kết đến sách
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Người dùng đánh giá
+    rating = models.PositiveSmallIntegerField()  # Xếp hạng (từ 1 đến 5)
+    content = models.TextField(null=True, blank=True)  # Nội dung đánh giá
+    created_at = models.DateTimeField(auto_now_add=True)  # Ngày tạo đánh giá
+
     def __str__(self):
-        return self.title
+        return f"{self.user.username} - {self.book.title} - {self.rating}"
 
