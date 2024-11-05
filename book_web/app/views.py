@@ -16,20 +16,75 @@ def books_by_author(request, author_name):
     books = Book.objects.filter(author__icontains=author_name).values('title', 'author', 'slug', 'download_link')
     return JsonResponse(list(books), safe=False)
 
+from bs4 import BeautifulSoup
+import requests
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from app.models import Book
+
 def book_content_by_slug(request, slug):
+    book = get_object_or_404(Book, slug=slug)
+    content_text = "No content available"
+
+    if book.download_link:
+        try:
+            response = requests.get(book.download_link)
+            if response.status_code == 200:
+                content_type = response.headers.get('Content-Type', '')
+
+                # Kiểm tra nếu nội dung là HTML
+                if 'text/html' in content_type:
+                    soup = BeautifulSoup(response.text, 'html.parser')
+
+                    # Xử lý thẻ <img> để đảm bảo đường dẫn đầy đủ cho các hình ảnh
+                    for img_tag in soup.find_all('img'):
+                        img_src = img_tag.get('src')
+                        if img_src and img_src.startswith('//'):
+                            img_tag['src'] = 'https:' + img_src
+
+                    content_text = str(soup)  # Nội dung HTML đầy đủ
+
+                # Nếu không phải HTML, sử dụng văn bản thuần
+                else:
+                    content_text = f"<pre>{response.text}</pre>"
+            else:
+                content_text = f"Failed to fetch content, status code: {response.status_code}"
+        except Exception as e:
+            content_text = f"Error fetching content: {e}"
+
+    return JsonResponse({
+        'title': book.title,
+        'author': book.author,
+        'content': content_text,
+    })
     # Lấy sách từ database dựa vào slug
     book = get_object_or_404(Book, slug=slug)
     
     # Kiểm tra nếu `download_link` tồn tại
     content_text = "No content available"
+
     if book.download_link:
         try:
             response = requests.get(book.download_link)
             if response.status_code == 200:
-                content_html = response.text
-                # Chuyển đổi nội dung HTML sang plain text bằng BeautifulSoup
-                soup = BeautifulSoup(content_html, "html.parser")
-                content_text = soup.get_text()
+                content_type = response.headers.get('Content-Type', 'text/plain')
+                
+                # Kiểm tra nếu là HTML, lấy nội dung HTML và cập nhật hình ảnh
+                if 'text/html' in content_type:
+                    content_html = response.text
+                    soup = BeautifulSoup(content_html, 'html.parser')
+
+                    # Tìm tất cả thẻ <img> và xử lý URL
+                    for img_tag in soup.find_all('img'):
+                        img_src = img_tag.get('src')
+                        if img_src and img_src.startswith('//'):
+                            img_tag['src'] = 'https:' + img_src
+
+                    content_text = str(soup)  # Nội dung HTML đã cập nhật URL ảnh
+
+                else:
+                    # Nếu là văn bản thuần
+                    content_text = response.text
             else:
                 content_text = f"Failed to fetch content, status code: {response.status_code}"
         except Exception as e:
