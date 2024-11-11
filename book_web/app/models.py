@@ -8,7 +8,7 @@ class Book(models.Model):
     slug = models.SlugField(unique=True, blank=True, max_length=255)
     author = models.CharField(max_length=255, null=True, blank=True)
     download_link = models.URLField()
-    gutenberg_id = models.IntegerFiegitld(unique=True)
+    gutenberg_id = models.IntegerField(unique=True)
 
     def save(self, *args, **kwargs):
         if not self.slug:
