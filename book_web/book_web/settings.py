@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
     'app',
 ]
 
@@ -76,10 +77,15 @@ WSGI_APPLICATION = 'book_web.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'book_web',  # Tên cơ sở dữ liệu bạn đã tạo
+        'USER': 'root',    # Tên người dùng MySQL
+        'PASSWORD': '123456',  # Mật khẩu MySQL
+        'HOST': 'localhost',      # Hoặc IP của máy chủ MySQL nếu không cài đặt trên máy cục bộ
+        'PORT': '3306',           # Cổng MySQL mặc định
     }
 }
+
 
 
 # Password validation
