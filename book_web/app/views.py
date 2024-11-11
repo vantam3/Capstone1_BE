@@ -56,47 +56,7 @@ def book_content_by_slug(request, slug):
         'title': book.title,
         'author': book.author,
         'content': content_text,
-    })
-    # Lấy sách từ database dựa vào slug
-    book = get_object_or_404(Book, slug=slug)
-    
-    # Kiểm tra nếu `download_link` tồn tại
-    content_text = "No content available"
-
-    if book.download_link:
-        try:
-            response = requests.get(book.download_link)
-            if response.status_code == 200:
-                content_type = response.headers.get('Content-Type', 'text/plain')
-                
-                # Kiểm tra nếu là HTML, lấy nội dung HTML và cập nhật hình ảnh
-                if 'text/html' in content_type:
-                    content_html = response.text
-                    soup = BeautifulSoup(content_html, 'html.parser')
-
-                    # Tìm tất cả thẻ <img> và xử lý URL
-                    for img_tag in soup.find_all('img'):
-                        img_src = img_tag.get('src')
-                        if img_src and img_src.startswith('//'):
-                            img_tag['src'] = 'https:' + img_src
-
-                    content_text = str(soup)  # Nội dung HTML đã cập nhật URL ảnh
-
-                else:
-                    # Nếu là văn bản thuần
-                    content_text = response.text
-            else:
-                content_text = f"Failed to fetch content, status code: {response.status_code}"
-        except Exception as e:
-            content_text = f"Error fetching content: {e}"
-
-    # Trả về nội dung sách dưới dạng JSON
-    return JsonResponse({
-        'title': book.title,
-        'author': book.author,
-        'content': content_text,
-    })
-    
+    }) 
 @csrf_exempt
 # @login_required  # Yêu cầu người dùng phải đăng nhập
 def add_review(request, book_id):
