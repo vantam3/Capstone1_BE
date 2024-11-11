@@ -2,7 +2,7 @@
 
 from django.urls import path
 from . import views
-from .views import BookSearchAPIView, BookDetailAPIView, ReviewCreateAPIView
+from .views import BookSearchAPIView
 
 urlpatterns = [
     path('', views.home, name='home'),
