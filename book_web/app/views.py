@@ -1,41 +1,58 @@
+import requests
 from django.http import HttpResponse, JsonResponse
 from rest_framework import generics, status
 from .serializers import BookSerializer
 from rest_framework.filters import SearchFilter
-import requests
 from .models import Book,Review
 from django.shortcuts import get_object_or_404
 from bs4 import BeautifulSoup
 from django.views.decorators.csrf import csrf_exempt  
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 from .serializers import RegisterSerializer
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 def home(request):
     return HttpResponse("Bookquest")
 #api register
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register_user(request):
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response({"message": "Đăng ký thành công"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Registration successful"}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#api login
+User = get_user_model()
+
+# API login
 @api_view(['POST'])
 def login_user(request):
     email = request.data.get("email")
     password = request.data.get("password")
-    
-    user = authenticate(username=email, password=password)
-    if user is not None:
-        token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "username": user.username}, status=status.HTTP_200_OK)
-    else:
-        return Response({"error": "Email hoặc mật khẩu không chính xác"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        # Get the user with the given email
+        user = User.objects.get(email=email)
+        # Verify the password
+        if check_password(password, user.password):
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({"token": token.key, "username": user.username}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Incorrect email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+    except User.DoesNotExist:
+        return Response({"error": "Incorrect email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+# Protected view
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protected_view(request):
+    return Response({"message": "This is secure data. You have successfully logged in!"})
+
 
 class BookSearchAPIView(generics.ListAPIView):
     queryset = Book.objects.all()
