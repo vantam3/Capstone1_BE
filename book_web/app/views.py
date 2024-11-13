@@ -1,51 +1,58 @@
-from django.shortcuts import render, redirect
+import requests
 from django.http import HttpResponse, JsonResponse
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth import login, logout
-from django.contrib import messages
-from rest_framework import generics
+from rest_framework import generics, status
 from .serializers import BookSerializer
 from rest_framework.filters import SearchFilter
-import requests
 from .models import Book,Review
 from django.shortcuts import get_object_or_404
 from bs4 import BeautifulSoup
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt  # Import csrf_exempt
-from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt  
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
+from .serializers import RegisterSerializer
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 def home(request):
     return HttpResponse("Bookquest")
-def register(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, 'Đăng ký thành công!')
-            return redirect('home')
-    else:
-        form = UserCreationForm()
-    return render(request, 'app/register.html', {'form': form})
+#api register
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_user(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Registration successful"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+User = get_user_model()
 
-def login_view(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            messages.success(request, 'Đăng nhập thành công!')
-            return redirect('home')
-    else:
-        form = AuthenticationForm()
-    return render(request, 'app/login.html', {'form': form})
+# API login
+@api_view(['POST'])
+def login_user(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
 
+    try:
+        # Get the user with the given email
+        user = User.objects.get(email=email)
+        # Verify the password
+        if check_password(password, user.password):
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({"token": token.key, "username": user.username}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Incorrect email or password"}, status=status.HTTP_401_UNAUTHORIZED)
+    except User.DoesNotExist:
+        return Response({"error": "Incorrect email or password"}, status=status.HTTP_401_UNAUTHORIZED)
 
-def logout_view(request):
-    logout(request)
-    messages.info(request, 'Bạn đã đăng xuất.')
-    return redirect('login')
+# Protected view
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def protected_view(request):
+    return Response({"message": "This is secure data. You have successfully logged in!"})
+
 
 class BookSearchAPIView(generics.ListAPIView):
     queryset = Book.objects.all()
