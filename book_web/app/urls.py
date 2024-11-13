@@ -10,8 +10,6 @@ urlpatterns = [
     path('api/register/', register_user, name='register_user'),
     #Đăng nhập
     path('api/login/', login_user, name='login_user'),
-    #Đăng xuất
-    path('logout/', views.logout_view, name='logout'),
     #Tìm sách
     path('api/books/search/', BookSearchAPIView.as_view(), name='book-search'), 
     #xem sach
