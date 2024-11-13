@@ -1,51 +1,41 @@
-from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth import login, logout
-from django.contrib import messages
-from rest_framework import generics
+from rest_framework import generics, status
 from .serializers import BookSerializer
 from rest_framework.filters import SearchFilter
 import requests
 from .models import Book,Review
 from django.shortcuts import get_object_or_404
 from bs4 import BeautifulSoup
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt  # Import csrf_exempt
-from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt  
+from .serializers import RegisterSerializer
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
 
 def home(request):
     return HttpResponse("Bookquest")
-def register(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, 'Đăng ký thành công!')
-            return redirect('home')
+#api register
+@api_view(['POST'])
+def register_user(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({"message": "Đăng ký thành công"}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#api login
+@api_view(['POST'])
+def login_user(request):
+    email = request.data.get("email")
+    password = request.data.get("password")
+    
+    user = authenticate(username=email, password=password)
+    if user is not None:
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({"token": token.key, "username": user.username}, status=status.HTTP_200_OK)
     else:
-        form = UserCreationForm()
-    return render(request, 'app/register.html', {'form': form})
-
-
-def login_view(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            messages.success(request, 'Đăng nhập thành công!')
-            return redirect('home')
-    else:
-        form = AuthenticationForm()
-    return render(request, 'app/login.html', {'form': form})
-
-
-def logout_view(request):
-    logout(request)
-    messages.info(request, 'Bạn đã đăng xuất.')
-    return redirect('login')
+        return Response({"error": "Email hoặc mật khẩu không chính xác"}, status=status.HTTP_401_UNAUTHORIZED)
 
 class BookSearchAPIView(generics.ListAPIView):
     queryset = Book.objects.all()
