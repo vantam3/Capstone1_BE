@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    'corsheaders',
+
     'app',
     'rest_framework',
 ]
@@ -50,9 +52,18 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+    
+    'corsheaders.middleware.CorsMiddleware',
 
+]
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',  # URL của React FE
+]
+import os
 ROOT_URLCONF = 'book_web.urls'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
 
 TEMPLATES = [
     {
