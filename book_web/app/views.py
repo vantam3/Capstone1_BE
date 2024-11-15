@@ -53,6 +53,56 @@ def login_user(request):
 def protected_view(request):
     return Response({"message": "This is secure data. You have successfully logged in!"})
 
+# app/views.py
+from django.conf import settings
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import login, logout
+from django.contrib import messages
+from rest_framework import generics, status
+from .serializers import BookSerializer, ReviewSerializer
+from rest_framework.filters import SearchFilter
+from .models import Book, Review
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.decorators import login_required
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import unquote
+
+
+def home(request):
+    return HttpResponse("Bookquest")
+
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Đăng ký thành công!')
+            return redirect('home')
+    else:
+        form = UserCreationForm()
+    return render(request, 'app/register.html', {'form': form})
+
+def login_view(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, 'Đăng nhập thành công!')
+            return redirect('home')
+    else:
+        form = AuthenticationForm()
+    return render(request, 'app/login.html', {'form': form})
+
+def logout_view(request):
+    logout(request)
+    messages.info(request, 'Bạn đã đăng xuất.')
+    return redirect('login')
 
 class BookSearchAPIView(generics.ListAPIView):
     queryset = Book.objects.all()
@@ -61,20 +111,59 @@ class BookSearchAPIView(generics.ListAPIView):
     search_fields = ['title', 'author']
 
 def all_books(request):
-    books = Book.objects.all().values('title', 'author', 'download_link', 'slug')
-    return JsonResponse(list(books), safe=False)
+    books = Book.objects.all().values('title', 'author', 'download_link', 'slug', 'image', 'id')
+    
+    # Kiểm tra và xây dựng URL đầy đủ cho image nếu cần thiết
+    books_data = []
+    for book in books:
+        if book['image']:
+            # Nếu image là một đường dẫn tương đối (trường hợp ImageField)
+            if not book['image'].startswith('http'):
+                book['image'] = request.build_absolute_uri(book['image'])
+        books_data.append(book)
+
+    return JsonResponse(books_data, safe=False)
+
+def book_detail_view(request, book_id):
+    # Lấy đối tượng từ database
+    book = get_object_or_404(Book, id=book_id)
+
+    # Xử lý URL hình ảnh
+    image_url = None
+    if book.image:
+        if hasattr(book.image, 'url'):  # Trường hợp ImageField
+            image_url = request.build_absolute_uri(book.image.url)
+        else:  # Trường hợp image là một chuỗi
+            if book.image.startswith(('http://', 'https://')):
+                image_url = book.image  # Sử dụng URL đầy đủ trực tiếp
+            else:
+                # Nếu là đường dẫn tương đối, thêm MEDIA_URL
+                image_url = request.build_absolute_uri(settings.MEDIA_URL + book.image)
+
+                
+    print(f"Original image: {book.image}")
+    print(f"Processed image_url: {image_url}")
+
+
+    # Chuẩn bị JSON trả về
+    book_data = {
+        'title': book.title,
+        'author': book.author,
+        'download_link': book.download_link,
+        'image': image_url,
+        'id': book.id,
+        'slug': book.slug,
+    }
+    return JsonResponse(book_data)
+
+
 def books_by_author(request, author_name):
     books = Book.objects.filter(author__icontains=author_name).values('title', 'author', 'slug', 'download_link')
     return JsonResponse(list(books), safe=False)
 
-from bs4 import BeautifulSoup
-import requests
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from app.models import Book
-
-def book_content_by_slug(request, slug):
-    book = get_object_or_404(Book, slug=slug)
+def book_content_by_id(request, book_id):
+    # Truy xuất sách dựa trên book_id thay vì slug
+    book = get_object_or_404(Book, id=book_id)
     content_text = "No content available"
 
     if book.download_link:
@@ -103,41 +192,53 @@ def book_content_by_slug(request, slug):
         except Exception as e:
             content_text = f"Error fetching content: {e}"
 
+    # Trả về JSON chứa thông tin sách và nội dung
     return JsonResponse({
         'title': book.title,
         'author': book.author,
         'content': content_text,
-    }) 
-@csrf_exempt
-# @login_required  # Yêu cầu người dùng phải đăng nhập
+    })
+import json
+
+@login_required  # Yêu cầu người dùng phải đăng nhập để sử dụng endpoint này
+@csrf_exempt  # Tạm thời bỏ qua CSRF trong môi trường phát triển
 def add_review(request, book_id):
-    book = get_object_or_404(Book, id=book_id)
-    rating_value = request.POST.get('rating')
-    comment = request.POST.get('comment', '').strip()
+    if request.method == 'POST':
+        try:
+            # Parse JSON data từ body của yêu cầu
+            data = json.loads(request.body)
 
-    if rating_value:
-        rating_value = int(rating_value)
-        if rating_value < 1 or rating_value > 5:
-            return JsonResponse({"error": "Rating must be between 1 and 5"}, status=400)
+            book = get_object_or_404(Book, id=book_id)
+            rating = data.get('rating')
+            comment = data.get('comment', '').strip()
 
-    # Tạo review với cả rating và content (nếu có)
-    review = Review.objects.create(
-        book=book,
-        # user=request.user,  # Gán người dùng hiện tại cho review
-        rating=rating_value if rating_value else None,
-        comment=comment if comment else None
-    )
-    
-    return JsonResponse({
-        "message": "Review added successfully",
-        # "user": review.user.username,  # Hiển thị tên người dùng
-        "rating": review.rating,
-        "comment": review.comment
-    }, status=201)
+            # Kiểm tra rating hợp lệ
+            if rating and 1 <= int(rating) <= 5:
+                review = Review.objects.create(
+                    book=book,
+                    user=request.user,  # Đảm bảo người dùng đã đăng nhập được gán vào Review
+                    rating=int(rating),
+                    comment=comment
+                )
+                return JsonResponse({
+                    "id": review.id,
+                    "user": review.user.username,
+                    "rating": review.rating,
+                    "comment": review.comment,
+                    "created_at": review.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }, status=201)
+            else:
+                return JsonResponse({"error": "Invalid rating"}, status=400)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({"error": "Invalid request method"}, status=400)
+
 def get_book_reviews(request, book_id):
     book = get_object_or_404(Book, id=book_id)
-    # reviews = book.reviews.select_related('user').values('user__username', 'rating', 'content', 'created_at')
-    reviews = book.reviews.values('rating', 'comment', 'created_at')
+    reviews = book.reviews.select_related('user').values('user__username', 'rating', 'comment', 'created_at')
     return JsonResponse({
         "title": book.title,
         "reviews": list(reviews)

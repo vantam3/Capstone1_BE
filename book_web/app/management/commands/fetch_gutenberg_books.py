@@ -34,7 +34,8 @@ class Command(BaseCommand):
             author = book_data['authors'][0]['name'] if book_data['authors'] else 'Unknown'
             formats = book_data.get('formats', {})
             
-            # Bao gồm mọi link hợp lệ
+            # Chỉ lấy sách nếu có ảnh
+            image_link = formats.get('image/jpeg')
             download_link = (
                 formats.get('text/html') or
                 formats.get('text/plain; charset=utf-8') or
@@ -42,22 +43,25 @@ class Command(BaseCommand):
                 formats.get('text/html.images')
             )
             
-            # Kiểm tra nếu có link download hợp lệ
-            if download_link:
+            # Kiểm tra nếu có link ảnh và link download hợp lệ
+            if image_link and download_link:
                 download_links.append(download_link)
                 
-            # Dùng `update_or_create` để lưu vào MySQL
-            Book.objects.update_or_create(
-                gutenberg_id=book_data['id'],
-                defaults={
-                    'title': title,
-                    'author': author,
-                    'download_link': download_link,
-                }
-            )
+                # Dùng `update_or_create` để lưu vào MySQL
+                Book.objects.update_or_create(
+                    gutenberg_id=book_data['id'],
+                    defaults={
+                        'title': title,
+                        'author': author,
+                        'download_link': download_link,
+                        'image': image_link  # Lưu link ảnh
+                    }
+                )
+        
         # Ghi các link vào file dataAI.txt trong thư mục app/data
+        os.makedirs("app/data", exist_ok=True)
         with open("app/data/dataAI.txt", "a", encoding="utf-8") as file:
             for link in download_links:
                 file.write(link + "\n")
 
-        self.stdout.write(self.style.SUCCESS(f'Successfully fetched {size} books from random page {random_page} without duplicates'))
+        self.stdout.write(self.style.SUCCESS(f'Successfully fetched {size} books from random page {random_page} with images only, without duplicates'))
