@@ -1,5 +1,3 @@
-# app/serializers.py
-
 from rest_framework import serializers
 from .models import Book, Review
 from django.db.models import Avg
@@ -29,29 +27,41 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
-class BookSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Book
-        fields = ['id', 'title', 'slug', 'author', 'download_link', 'gutenberg_id', 'image', 'summary']
 
 class ReviewSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)  # Display username, read-only
+    user = serializers.StringRelatedField(read_only=True)  # Hiển thị tên người dùng thay vì ID
 
     class Meta:
         model = Review
         fields = ['id', 'book', 'user', 'rating', 'comment', 'created_at']
 
-class BookDetailSerializer(serializers.ModelSerializer):
-    reviews = ReviewSerializer(many=True, read_only=True)  # List of book reviews
-    average_rating = serializers.SerializerMethodField()  # Average rating
+    def create(self, validated_data):
+        # Gán user hiện tại vào review
+        request = self.context.get('request')  # Lấy request từ context
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        return super().create(validated_data)
+
+
+
+class BookSerializer(serializers.ModelSerializer):
+    reviews = ReviewSerializer(many=True, read_only=True)  # Danh sách các đánh giá cho sách
 
     class Meta:
         model = Book
         fields = [
-            'id', 'title', 'author', 'isbn', 'description', 'language', 
-            'total_pages', 'view_count', 'status', 'create_at', 
-            'update_at', 'reviews', 'average_rating','image'
+            'id', 
+            'title', 
+            'slug', 
+            'author', 
+            'download_link', 
+            'gutenberg_id', 
+            'image', 
+            'summary', 
+            'note', 
+            'credits', 
+            'isbn', 
+            'language', 
+            'create_at', 
+            'reviews'  # Gắn đánh giá vào sách
         ]
-
-    def get_average_rating(self, obj):
-        return obj.reviews.aggregate(Avg('rating'))['rating__avg']

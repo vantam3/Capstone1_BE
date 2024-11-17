@@ -10,18 +10,13 @@ class Book(models.Model):
     author = models.CharField(max_length=255, null=True, blank=True)
     download_link = models.URLField()
     gutenberg_id = models.IntegerField(unique=True)
-    
     image = models.URLField(default='https://example.com/default-image.jpg', blank=True)
-    
     summary = models.TextField(null=True, blank=True)
+    note = models.TextField(null=True, blank=True)  # Ghi chú
+    credits = models.TextField(null=True, blank=True)  # Credits của sách
     isbn = models.CharField(max_length=13, unique=True, null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
     language = models.CharField(max_length=20, null=True, blank=True)
-    total_pages = models.IntegerField(null=True, blank=True)
-    view_count = models.PositiveIntegerField(default=0)
-    status = models.CharField(max_length=20, default='Available')
     create_at = models.DateTimeField(auto_now_add=True)
-    update_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if not self.slug:
