@@ -1,5 +1,5 @@
 # app/urls.py
-from .views import register_user, login_user
+from .views import RegisterView, LoginView, LogoutView
 from django.urls import path
 from . import views
 from .views import BookSearchAPIView
@@ -11,9 +11,11 @@ from .views import create_user, update_user, delete_user, fetch_and_add_books
 urlpatterns = [
     path('', views.home, name='home'),
     #Đăng ký
-    path('api/register/', register_user, name='register_user'),
+    path('api/register/', RegisterView.as_view(), name='register'),
     #Đăng nhập
-    path('api/login/', login_user, name='login_user'),
+    path('api/login/', LoginView.as_view(), name='login'),
+    #Đăng xuất
+    path('api/logout/', LogoutView.as_view(), name='logout'),
     #Tìm sách
     path('api/books/search/', BookSearchAPIView.as_view(), name='book-search'), 
     #xem sach
