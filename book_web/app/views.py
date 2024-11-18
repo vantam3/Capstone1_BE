@@ -141,8 +141,8 @@ def get_book_reviews(request, book_id):
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)
     
-    # admin
-     
+    
+# ------------------- ADMIN VIEWS -------------------     
     
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view
