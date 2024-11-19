@@ -4,7 +4,7 @@ from django.urls import path
 from . import views
 from .views import BookSearchAPIView
 from .views import list_users, list_books
-from .views import create_user, update_user, delete_user, fetch_and_add_books
+from .views import create_user, update_user, delete_user, fetch_and_add_books,fetch_books_by_category
 
 
 
@@ -40,6 +40,9 @@ urlpatterns = [
     
     #add sach
     path('api/admin/fetch-books/', fetch_and_add_books, name='fetch_books'),
+    #add book for gernes
+    path('api/admin/fetch-books-gernes/', fetch_books_by_category, name='fetch_books_by_category'),
+
 
 ]
 

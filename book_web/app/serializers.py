@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Book, Review
+from .models import Book, Review,Genre
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)  # Hiển thị tên người dùng thay vì ID
@@ -16,8 +16,14 @@ class ReviewSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ['id', 'name']
 
 class BookSerializer(serializers.ModelSerializer):
+    genres = serializers.StringRelatedField(many=True)
+
     reviews = ReviewSerializer(many=True, read_only=True)  # Danh sách các đánh giá cho sách
 
     class Meta:
@@ -25,8 +31,8 @@ class BookSerializer(serializers.ModelSerializer):
         fields = [
             'id', 
             'title', 
-            'slug', 
             'author', 
+            'genres',
             'download_link', 
             'gutenberg_id', 
             'image', 
