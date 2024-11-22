@@ -33,6 +33,7 @@ urlpatterns = [
     #admin
     path('api/admin/users/', list_users, name='list_users'),
     path('api/admin/books/', list_books, name='list_books'),
+    #update and delete user
     
     path('api/admin/users/create/', create_user, name='create_user'),
     path('api/admin/users/<int:user_id>/update/', update_user, name='update_user'),

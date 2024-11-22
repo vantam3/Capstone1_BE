@@ -186,9 +186,11 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.decorators import permission_classes
+import time
+
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+# @permission_classes([IsAdminUser])
 def list_users(request):
     users = User.objects.all()
     data = [{'id': user.id, 'username': user.username, 'email': user.email, 'is_staff': user.is_staff} for user in users]
@@ -222,7 +224,7 @@ def create_user(request):
 
 
 @api_view(['PUT'])
-@permission_classes([IsAdminUser])
+# @permission_classes([IsAdminUser])
 def update_user(request, user_id):
     user = User.objects.filter(id=user_id).first()
     if not user:
@@ -238,7 +240,7 @@ def update_user(request, user_id):
     return Response({"id": user.id, "username": user.username, "email": user.email}, status=status.HTTP_200_OK)
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+# @permission_classes([IsAdminUser])
 def delete_user(request, user_id):
     user = User.objects.filter(id=user_id).first()
     if not user:
@@ -349,55 +351,55 @@ def fetch_books_by_category(request):
     if not genre_name:
         return Response({"error": "Genre is required"}, status=400)
 
-    # Tìm kiếm sách trên Gutenberg theo thể loại
     url = f"https://gutendex.com/books?languages=en&page={random_page}&size={size}&search={genre_name}"
-    response = requests.get(url)
+    try:
+        time.sleep(2)  # Chờ 2 giây trước khi gửi request
+        response = requests.get(url)
 
-    if response.status_code != 200:
-        return Response({"error": "Failed to fetch data from API"}, status=500)
+        if response.status_code != 200:
+            return Response({"error": "Failed to fetch data from API"}, status=500)
 
-    data = response.json()
-    added_books = []
+        data = response.json()
+        added_books = []
 
-    for book_data in data['results']:
-        title = book_data['title']
-        author = book_data['authors'][0]['name'] if book_data['authors'] else 'Unknown'
-        formats = book_data.get('formats', {})
-        download_link = formats.get('text/html') or formats.get('text/plain; charset=utf-8')
-        image_link = formats.get('image/jpeg')
+        for book_data in data['results']:
+            title = book_data['title']
+            author = book_data['authors'][0]['name'] if book_data['authors'] else 'Unknown'
+            formats = book_data.get('formats', {})
+            download_link = formats.get('text/html') or formats.get('text/plain; charset=utf-8')
+            image_link = formats.get('image/jpeg')
+            summary = ", ".join(book_data.get('subjects', []))
+            language = book_data.get('languages', ['Unknown'])[0]
 
-        # Thông tin bổ sung
-        summary = ", ".join(book_data.get('subjects', []))  # Sử dụng subjects làm summary
-        language = book_data.get('languages', ['Unknown'])[0]
+            # Tạo hoặc cập nhật sách
+            book, created = Book.objects.update_or_create(
+                gutenberg_id=book_data['id'],
+                defaults={
+                    'title': title,
+                    'author': author,
+                    'download_link': download_link,
+                    'image': image_link,
+                    'summary': summary,
+                    'language': language,
+                }
+            )
 
-        # Tạo sách mới hoặc cập nhật nếu đã tồn tại
-        book, created = Book.objects.update_or_create(
-            gutenberg_id=book_data['id'],
-            defaults={
-                'title': title,
-                'author': author,
-                'download_link': download_link,
-                'image': image_link,
-                'summary': summary,
-                'language': language,
-            }
-        )
+            genre, _ = Genre.objects.get_or_create(name=genre_name)
+            book.genres.add(genre)
 
-        # Gắn thể loại admin nhập vào sách
-        genre, _ = Genre.objects.get_or_create(name=genre_name)
-        book.genres.add(genre)
+            if created:
+                added_books.append({
+                    "title": book.title,
+                    "author": book.author,
+                    "genres": [genre.name],
+                    "image": book.image,
+                    "summary": book.summary,
+                    "language": book.language,
+                })
 
-        if created:
-            added_books.append({
-                "title": book.title,
-                "author": book.author,
-                "genres": [genre.name],
-                "image": book.image,
-                "summary": book.summary,
-                "language": book.language,
-            })
-
-    return Response({
-        "message": f"Successfully fetched {len(added_books)} books with genre {genre_name}",
-        "books": added_books,
-    }, status=200)
+        return Response({
+            "message": f"Successfully fetched {len(added_books)} books with genre {genre_name}",
+            "books": added_books,
+        }, status=200)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
