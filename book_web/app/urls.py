@@ -41,7 +41,8 @@ urlpatterns = [
     
     #add sach
     path('api/admin/fetch-books/', fetch_and_add_books, name='fetch_books'),
-
+    #add book for gernes
+    path('api/admin/fetch-books-gernes/', fetch_books_by_category, name='fetch_books_by_category'),
 ]
 
 
