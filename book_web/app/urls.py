@@ -4,8 +4,7 @@ from django.urls import path
 from . import views
 from .views import BookSearchAPIView
 from .views import list_users, list_books
-from .views import create_user, update_user, delete_user, fetch_and_add_books
-
+from .views import create_user, update_user, delete_user, fetch_and_add_books,fetch_books_by_category, admin_dashboard
 
 
 urlpatterns = [
@@ -18,6 +17,8 @@ urlpatterns = [
     path('api/logout/', LogoutView.as_view(), name='logout'),
     #Tìm sách
     path('api/books/search/', BookSearchAPIView.as_view(), name='book-search'), 
+    #Trang Admin:
+    path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
     #xem sach
     path('api/books/', views.all_books, name='all_books'),
     path('api/books/<int:book_id>/', views.book_detail_view, name='book_detail_view'),

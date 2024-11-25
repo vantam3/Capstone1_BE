@@ -1,5 +1,4 @@
 # app/models.py
-
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User
@@ -41,3 +40,4 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
+
