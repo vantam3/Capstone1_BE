@@ -252,154 +252,102 @@ def delete_user(request, user_id):
 #CRUD BOOKS
 #ADD BOOKS
 @api_view(['POST'])
-@permission_classes([IsAdminUser])  # Chỉ admin mới có quyền
-def fetch_and_add_books(request):
-    size = min(int(request.data.get('size', 20)), 100)  # Giới hạn tối đa là 100
-    max_page = 100  # Số trang tối đa (cố định)
-    random_page = random.randint(1, max_page)  # Chọn trang ngẫu nhiên
+# @permission_classes([IsAdminUser])
+def fetch_books_by_genre(request):
+    keyword = request.data.get('keyword', '').lower()  # Từ khóa admin nhập
+    size = min(int(request.data.get('size', 20)), 100)  # Giới hạn số sách
+    max_page = 100
+    max_attempts = 10  # Giới hạn số lần thử chuyển trang
+    found_books = 0
 
-    url = f"https://gutendex.com/books?languages=en&page={random_page}&size={size}"
-    response = requests.get(url)
+    if not keyword:
+        return Response({"error": "Keyword is required"}, status=400)
 
-    if response.status_code != 200:
-        return JsonResponse({"error": "Failed to fetch data from API"}, status=500)
-
-    data = response.json()
     added_books = []
     download_links = []
-
-    for book_data in data['results']:
-        title = book_data['title']
-        author = book_data['authors'][0]['name'] if book_data['authors'] else 'Unknown'
-        formats = book_data.get('formats', {})
-
-        # Các trường bổ sung
-        summary = ", ".join(book_data.get('Summary', []))  # Sử dụng subjects làm summary nếu có
-        credits = ", ".join([credit['name'] for credit in book_data.get('Credits', [])])  # Lấy danh sách translators
-        language = book_data.get('languages', ['Unknown'])[0]  # Ngôn ngữ
-        note = ", ".join(book_data.get('Note', []))  # Bookshelves có thể làm ghi chú
-
-        # Link ảnh và link download
-        image_link = formats.get('image/jpeg')
-        download_link = (
-            formats.get('text/html') or
-            formats.get('text/plain; charset=utf-8') or
-            formats.get('text/plain') or
-            formats.get('text/html.images')
-        )
-
-        # Kiểm tra nếu có link ảnh và link download hợp lệ
-        if image_link and download_link:
-            # Dùng `update_or_create` để lưu vào cơ sở dữ liệu
-            book, created = Book.objects.update_or_create(
-                gutenberg_id=book_data['id'],
-                defaults={
-                    'title': title,
-                    'author': author,
-                    'download_link': download_link,
-                    'image': image_link,
-                    'summary': summary or None,  # Nếu không có thì lưu None
-                    'credits': credits or None,
-                    'language': language or None,
-                    'note': note or None,
-                }
-            )
-            if created:
-                added_books.append({
-                    "title": book.title,
-                    "author": book.author,
-                    "image": book.image,
-                    "summary": book.summary,
-                    "credits": book.credits,
-                    "language": book.language,
-                    "note": book.note,
-                    "download_link": book.download_link,
-                })
-                # Thêm link download vào danh sách
-                download_links.append(download_link)
-
-    # Tạo file txt và lưu các link download
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # Tạo timestamp cho file
-    file_name = f"downloads_{timestamp}.txt"
-    file_path = os.path.join("app/data", file_name)  # Thư mục lưu file
-
-    # Tạo thư mục nếu chưa tồn tại
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-    # Ghi các link download vào file
-    with open(file_path, "w", encoding="utf-8") as file:
-        for link in download_links:
-            file.write(link + "\n")
-
-    return JsonResponse({
-        "message": f"Successfully fetched {len(added_books)} books from random page {random_page}",
-        "books": added_books,
-        "download_file": file_name  # Trả về tên file để tham khảo
-    }, status=200)
     
-    
-    
-#add book for gernes
-@api_view(['POST'])
-# @permission_classes([IsAdminUser])  # Chỉ admin mới có quyền sử dụng API
-def fetch_books_by_category(request):
-    genre_name = request.data.get('genre')  # Lấy thể loại từ admin nhập
-    size = min(int(request.data.get('size', 20)), 100)  # Số lượng sách cần lấy
-    max_page = 100
-    random_page = random.randint(1, max_page)
+    # Tạo hoặc lấy thể loại từ keyword
+    genre, _ = Genre.objects.get_or_create(name=keyword.capitalize())
 
-    if not genre_name:
-        return Response({"error": "Genre is required"}, status=400)
-
-    url = f"https://gutendex.com/books?languages=en&page={random_page}&size={size}&search={genre_name}"
-    try:
-        time.sleep(2)  # Chờ 2 giây trước khi gửi request
+    for attempt in range(max_attempts):
+        random_page = random.randint(1, max_page)  # Chọn trang ngẫu nhiên
+        url = f"https://gutendex.com/books?languages=en&page={random_page}&size={size}"
         response = requests.get(url)
 
         if response.status_code != 200:
-            return Response({"error": "Failed to fetch data from API"}, status=500)
+            continue  # Chuyển sang trang khác nếu API thất bại
 
         data = response.json()
-        added_books = []
+        books_on_page = 0
 
         for book_data in data['results']:
-            title = book_data['title']
+            # Tìm kiếm từ khóa trong tiêu đề hoặc mô tả (summary)
+            title = book_data['title'].lower()
+            subjects = ", ".join(book_data.get('subjects', [])).lower()
+            
+            if keyword not in title and keyword not in subjects:
+                continue
+
+            # Lấy thông tin sách
             author = book_data['authors'][0]['name'] if book_data['authors'] else 'Unknown'
             formats = book_data.get('formats', {})
             download_link = formats.get('text/html') or formats.get('text/plain; charset=utf-8')
             image_link = formats.get('image/jpeg')
-            summary = ", ".join(book_data.get('subjects', []))
             language = book_data.get('languages', ['Unknown'])[0]
 
-            # Tạo hoặc cập nhật sách
-            book, created = Book.objects.update_or_create(
-                gutenberg_id=book_data['id'],
-                defaults={
-                    'title': title,
-                    'author': author,
-                    'download_link': download_link,
-                    'image': image_link,
-                    'summary': summary,
-                    'language': language,
-                }
-            )
+            if image_link and download_link:
+                # Cập nhật hoặc tạo sách
+                book, created = Book.objects.update_or_create(
+                    gutenberg_id=book_data['id'],
+                    defaults={
+                        'title': book_data['title'],
+                        'author': author,
+                        'download_link': download_link,
+                        'image': image_link,
+                        'summary': subjects,
+                        'language': language,
+                    }
+                )
 
-            genre, _ = Genre.objects.get_or_create(name=genre_name)
-            book.genres.add(genre)
+                # Gắn thể loại vào sách
+                book.genres.add(genre)
 
-            if created:
-                added_books.append({
-                    "title": book.title,
-                    "author": book.author,
-                    "genres": [genre.name],
-                    "image": book.image,
-                    "summary": book.summary,
-                    "language": book.language,
-                })
+                if created:
+                    added_books.append({
+                        "title": book.title,
+                        "author": book.author,
+                        "image": book.image,
+                        "summary": book.summary,
+                        "language": book.language,
+                    })
+                    download_links.append(download_link)
+                    books_on_page += 1
+                    found_books += 1
 
-        return Response({
-            "message": f"Successfully fetched {len(added_books)} books with genre {genre_name}",
-            "books": added_books,
-        }, status=200)
-    except Exception as e:
-        return Response({"error": str(e)}, status=500)
+            if found_books >= size:
+                break  # Đủ số lượng sách yêu cầu
+
+        if found_books >= size or books_on_page > 0:
+            break  # Kết thúc nếu tìm thấy sách trên trang này
+
+    if found_books == 0:
+        return Response({"error": f"No books found matching keyword '{keyword}' after {max_attempts} attempts."}, status=404)
+
+    # Tạo file txt và lưu các link download
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    file_name = f"downloads_{timestamp}.txt"
+    file_path = os.path.join("app/data", file_name)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "w", encoding="utf-8") as file:
+        for link in download_links[:size]:  # Ghi đúng số lượng sách được yêu cầu
+            file.write(link + "\n")
+
+    return Response({
+        "message": f"Successfully fetched {len(added_books)} books matching keyword '{keyword}'",
+        "books": added_books,
+        "download_file": file_name,  # Trả về tên file
+    }, status=200)
+
+
+
+
