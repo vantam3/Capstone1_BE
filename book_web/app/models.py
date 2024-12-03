@@ -11,7 +11,6 @@ class Genre(models.Model):
 
 class Book(models.Model):
     title = models.CharField(max_length=500)
-    slug = models.SlugField(unique=True, blank=True, max_length=255)
     author = models.CharField(max_length=255, null=True, blank=True)
     download_link = models.URLField()
     gutenberg_id = models.IntegerField(unique=True)
@@ -46,4 +45,6 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
+    
+
 

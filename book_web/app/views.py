@@ -105,11 +105,24 @@ def admin_dashboard(request):
         return Response({'message': 'Welcome Admin!'}, status=status.HTTP_200_OK)
     return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
 
-class BookSearchAPIView(generics.ListAPIView):
-    queryset = Book.objects.all()
-    serializer_class = BookSerializer
-    filter_backends = [SearchFilter]
-    search_fields = ['title', 'author']
+@api_view(['GET'])
+def search_books(request):
+    # Lấy từ khóa tìm kiếm từ query parameters
+    query = request.query_params.get('q', '').strip()
+    if not query:
+        return Response({'error': 'Query parameter "q" is required.'}, status=400)
+
+    # Tìm kiếm sách theo tiêu đề hoặc tác giả
+    books = Book.objects.filter(
+        Q(title__icontains=query) | Q(author__icontains=query)
+    )
+
+    if not books.exists():
+        return Response({'message': 'No books found matching your query.'}, status=404)
+
+    # Serialize kết quả
+    serializer = BookSerializer(books, many=True)
+    return Response(serializer.data, status=200)
 
 @api_view(['GET'])
 def all_books(request):
@@ -199,6 +212,50 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.decorators import permission_classes
+from django.db.models import Count, Q
+from django.db import connection
+
+@api_view(['GET'])
+def book_statistics(request):
+    # Sử dụng truy vấn SQL thô để đếm số sách theo thể loại từ app_book_genres
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT g.name, COUNT(bg.book_id) AS book_count
+            FROM app_book_genres bg
+            INNER JOIN app_genre g ON bg.genre_id = g.id
+            GROUP BY g.name
+            ORDER BY book_count DESC
+        """)
+        genres_data = cursor.fetchall()
+
+    # Chuyển đổi dữ liệu thành danh sách từ điển
+    genres_result = [{"name": row[0], "book_count": row[1]} for row in genres_data]
+
+    # Tổng số sách
+    total_books = sum([row[1] for row in genres_data])
+
+    return Response({
+        "total_books": total_books,
+        "books_by_genre": genres_result,
+    })
+
+@api_view(['GET'])
+def user_roles_statistics(request):
+    # Đếm số lượng người dùng theo vai trò
+    roles_data = {
+        "Superusers": User.objects.filter(is_superuser=True).count(),
+        "Staff": User.objects.filter(is_staff=True, is_superuser=True).count(),
+        "Regular Users": User.objects.filter(is_superuser=False, is_staff=False).count(),
+    }
+
+    # Đếm số lượng người dùng đang hoạt động
+    active_users = User.objects.filter(is_active=True).count()
+
+    return Response({
+        "roles": roles_data,
+        "active_users": active_users,
+        "total_users": User.objects.count()
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])

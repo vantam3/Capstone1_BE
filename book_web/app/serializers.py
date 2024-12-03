@@ -25,7 +25,6 @@ class BookSerializer(serializers.ModelSerializer):
         fields = [
             'id', 
             'title', 
-            'slug', 
             'author', 
             'download_link', 
             'gutenberg_id', 
