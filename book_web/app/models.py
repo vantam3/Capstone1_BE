@@ -2,6 +2,8 @@
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User
+class Genre(models.Model):
+    name = models.CharField(max_length=100, unique=True)
 
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -21,17 +23,7 @@ class Book(models.Model):
     isbn = models.CharField(max_length=13, unique=True, null=True, blank=True)
     language = models.CharField(max_length=20, null=True, blank=True)
     create_at = models.DateTimeField(auto_now_add=True)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            base_slug = slugify(self.title)
-            slug = base_slug
-            counter = 1
-            while Book.objects.filter(slug=slug).exists():
-                slug = f"{base_slug}-{counter}"
-                counter += 1
-            self.slug = slug
-        super().save(*args, **kwargs)
+    genres = models.ManyToManyField(Genre, related_name='books')  # Quan hệ nhiều-nhiều với Genre
 
     def __str__(self):
         return self.title
