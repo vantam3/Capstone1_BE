@@ -2,11 +2,10 @@
 from .views import RegisterView, LoginView, LogoutView
 from django.urls import path
 from . import views
-from .views import BookSearchAPIView
+from .views import search_books
 from .views import list_users, list_books
 from .views import create_user, update_user, delete_user, fetch_and_add_books,fetch_books_by_category
-
-
+from .views import admin_dashboard, book_statistics, user_roles_statistics
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -17,7 +16,11 @@ urlpatterns = [
     #Đăng xuất
     path('api/logout/', LogoutView.as_view(), name='logout'),
     #Tìm sách
-    path('api/books/search/', BookSearchAPIView.as_view(), name='book-search'), 
+    path('api/search-books/', search_books, name='search-books'), 
+    #Trang Admin:
+    path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
+    path('api/book-statistics/', book_statistics, name='book-statistics'),
+    path('api/user-roles-statistics/', user_roles_statistics, name='user-roles-statistics'),
     #xem sach
     path('api/books/', views.all_books, name='all_books'),
     path('api/books/<int:book_id>/', views.book_detail_view, name='book_detail_view'),
@@ -42,8 +45,6 @@ urlpatterns = [
     path('api/admin/fetch-books/', fetch_and_add_books, name='fetch_books'),
     #add book for gernes
     path('api/admin/fetch-books-gernes/', fetch_books_by_category, name='fetch_books_by_category'),
-
-
 ]
 
 

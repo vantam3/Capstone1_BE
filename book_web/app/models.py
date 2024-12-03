@@ -1,14 +1,16 @@
 # app/models.py
-
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
+class Genre(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
     def __str__(self):
         return self.name
-    
+
 class Book(models.Model):
     title = models.CharField(max_length=500)
     author = models.CharField(max_length=255, null=True, blank=True)
@@ -35,3 +37,6 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
+    
+
+
