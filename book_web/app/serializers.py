@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Book, Review, BookCreation
+from .models import Book, Review, Genre, BookCreation
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -17,8 +17,14 @@ class ReviewSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ['id', 'name']
 
 class BookSerializer(serializers.ModelSerializer):
+    genres = serializers.StringRelatedField(many=True)
+
     reviews = ReviewSerializer(many=True, read_only=True)  # Danh sách các đánh giá cho sách
 
     class Meta:
@@ -27,6 +33,7 @@ class BookSerializer(serializers.ModelSerializer):
             'id', 
             'title', 
             'author', 
+            'genres',
             'download_link', 
             'gutenberg_id', 
             'image', 
@@ -38,8 +45,7 @@ class BookSerializer(serializers.ModelSerializer):
             'create_at', 
             'reviews'  
         ]
-
 class BookCreationSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookCreation
-        fields = ['id', 'title', 'author', 'genre', 'description', 'text',]
+        fields = ['id', 'title', 'author', 'genre', 'description', 'text',]        

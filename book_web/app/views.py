@@ -227,7 +227,6 @@ def get_book_reviews(request, book_id):
     reviews = book.reviews.all()
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)
-
 class BookCreationAPIView(APIView):
     def post(self, request, *args, **kwargs):
         # Deserialize the incoming JSON data
@@ -239,6 +238,7 @@ class BookCreationAPIView(APIView):
         
         # Return validation errors
         return Response({"error": "Failed to create book", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)   
+
     # admin
      
     
