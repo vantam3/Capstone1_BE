@@ -6,6 +6,7 @@ from .views import search_books
 from .views import list_users, list_books
 from .views import create_user, update_user, delete_user, fetch_and_add_books,fetch_books_by_category
 from .views import admin_dashboard, book_statistics, user_roles_statistics
+from .views import ForgotPasswordView, BookCreationAPIView
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -15,8 +16,12 @@ urlpatterns = [
     path('api/login/', LoginView.as_view(), name='login'),
     #Đăng xuất
     path('api/logout/', LogoutView.as_view(), name='logout'),
+    #Quên Mật khẩu
+    path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
     #Tìm sách
     path('api/search-books/', search_books, name='search-books'), 
+    #Tạo sách
+    path('api/create-book/', BookCreationAPIView.as_view(), name='create-book'),
     #Trang Admin:
     path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
     path('api/book-statistics/', book_statistics, name='book-statistics'),

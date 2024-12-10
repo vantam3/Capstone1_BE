@@ -46,5 +46,13 @@ class Review(models.Model):
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
     
+class BookCreation(models.Model):
+    title = models.CharField(max_length=255)  # Tên sách
+    author = models.CharField(max_length=255)  # Tác giả
+    genre = models.CharField(max_length=100)  # Thể loại 
+    description = models.TextField()  # Mô tả
+    text = models.TextField()  # Nội dung
 
+    def __str__(self):
+        return self.title
 
