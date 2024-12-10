@@ -2,7 +2,7 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from rest_framework import generics, status
-from .serializers import BookSerializer, ReviewSerializer
+from .serializers import BookSerializer, ReviewSerializer, BookCreationSerializer
 from rest_framework.filters import SearchFilter
 from .models import Book, Genre
 import requests
@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from rest_framework.decorators import api_view
 import random
 import os
+import string
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from datetime import datetime
@@ -19,6 +20,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.mail import send_mail
 
 
 def home(request):
@@ -94,7 +96,29 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'User with this email does not exist!'}, status=status.HTTP_404_NOT_FOUND)
 
+        temp_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        user.set_password(temp_password)
+        user.save()
+        try:
+            send_mail(
+                subject="Reset Password - Bookquest",
+                message=f"Hello {user.first_name},\n\nYour temporary password is: {temp_password}\nPlease log in and change your password immediately.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            return Response({'message': 'Temporary password sent to your email!'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': 'Failed to send email. Please try again later.', 'details': str(e)}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 def is_admin(user):
     return user.is_authenticated and user.is_superuser  
 
@@ -203,8 +227,18 @@ def get_book_reviews(request, book_id):
     reviews = book.reviews.all()
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)
-    
-    
+class BookCreationAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Deserialize the incoming JSON data
+        serializer = BookCreationSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()  # Save valid data to the database
+            return Response({"message": "Book created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        
+        # Return validation errors
+        return Response({"error": "Failed to create book", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)   
+
     # admin
      
     

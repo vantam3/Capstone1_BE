@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Book, Review,Genre
+from .models import Book, Review, Genre, BookCreation
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)  # Hiển thị tên người dùng thay vì ID
@@ -42,5 +43,9 @@ class BookSerializer(serializers.ModelSerializer):
             'isbn', 
             'language', 
             'create_at', 
-            'reviews'  # Gắn đánh giá vào sách
+            'reviews'  
         ]
+class BookCreationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookCreation
+        fields = ['id', 'title', 'author', 'genre', 'description', 'text',]        
