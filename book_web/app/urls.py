@@ -4,7 +4,8 @@ from django.urls import path
 from . import views
 from .views import BookSearchAPIView
 from .views import list_users, list_books
-from .views import create_user, update_user, delete_user,fetch_books_by_genre
+from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields,delete_book
+from .recommend_view import RecommendBooksAPIView
 
 
 
@@ -29,8 +30,10 @@ urlpatterns = [
     path('api/books/<int:book_id>/add_review/', views.add_review, name='add_review'),
     path('api/books/<int:book_id>/reviews/', views.get_book_reviews, name='get_book_reviews'),
     
-    
-    #admin
+    #Recommend Book
+    path('api/recommend_books/', RecommendBooksAPIView.as_view(), name='recommend_books'),
+
+    #===============================ADMIN==========================
     path('api/admin/users/', list_users, name='list_users'),
     path('api/admin/books/', list_books, name='list_books'),
     #update and delete user
@@ -40,9 +43,12 @@ urlpatterns = [
     path('api/admin/users/<int:user_id>/delete/', delete_user, name='delete_user'),
     
     #add sach
-    # path('api/admin/fetch-books/', fetch_and_add_books, name='fetch_books'),
-    #add book for gernes
     path('api/admin/fetch-books-genre/', fetch_books_by_genre, name='fetch_books_by_genre'),
+    
+    #edit,delete book
+    path('api/books/<int:pk>/edit/', edit_book_fields, name='edit-book-fields'),
+    path('api/books/<int:book_id>/delete/',delete_book, name='delete_book'),
+
 
 
 ]

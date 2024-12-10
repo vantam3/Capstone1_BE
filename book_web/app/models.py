@@ -15,9 +15,7 @@ class Book(models.Model):
     download_link = models.URLField()
     gutenberg_id = models.IntegerField(unique=True)
     image = models.URLField(default='https://example.com/default-image.jpg', blank=True)
-    summary = models.TextField(null=True, blank=True)
-    note = models.TextField(null=True, blank=True)  # Ghi chú
-    credits = models.TextField(null=True, blank=True)  # Credits của sách
+    subject = models.TextField(null=True, blank=True)  # Đổi tên từ summary sang subject
     isbn = models.CharField(max_length=13, unique=True, null=True, blank=True)
     language = models.CharField(max_length=20, null=True, blank=True)
     create_at = models.DateTimeField(auto_now_add=True)
@@ -25,6 +23,7 @@ class Book(models.Model):
 
     def __str__(self):
         return self.title
+
 
 class Review(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='reviews')
@@ -35,3 +34,24 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
+
+#embedding
+from django.db import models
+import pickle
+
+class Embedding(models.Model):
+    book = models.OneToOneField(
+        'Book',
+        on_delete=models.CASCADE,
+        related_name='embedding'
+    )
+    vector = models.BinaryField()  # Lưu trữ dữ liệu dưới dạng nhị phân
+
+    def set_vector(self, array):
+        """Lưu numpy.array dưới dạng binary"""
+        self.vector = pickle.dumps(array)
+
+    def get_vector(self):
+        """Truy xuất numpy.array từ binary"""
+        return pickle.loads(self.vector)
+

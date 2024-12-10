@@ -179,6 +179,9 @@ def get_book_reviews(request, book_id):
     return Response(serializer.data)
     
     
+# tim so thich nguoi dung
+
+    
 # ------------------- ADMIN VIEWS -------------------     
     
 from django.contrib.auth.models import User
@@ -186,9 +189,6 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.decorators import permission_classes
-import time
-
-
 @api_view(['GET'])
 # @permission_classes([IsAdminUser])
 def list_users(request):
@@ -249,6 +249,78 @@ def delete_user(request, user_id):
     user.delete()
     return Response({"message": "User deleted successfully"}, status=status.HTTP_200_OK)
 
+
+@api_view(['PUT'])
+# @permission_classes([IsAdminUser])
+def edit_book_fields(request, pk):
+    """
+    PUT: Chỉ chỉnh sửa các trường title, author, language, và subject của sách.
+    """
+    try:
+        # Lấy sách theo ID
+        book = Book.objects.get(pk=pk)
+    except Book.DoesNotExist:
+        return Response({"error": "Book not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Lọc dữ liệu cần chỉnh sửa
+    valid_fields = ['title', 'author', 'language', 'subject']
+    fields_to_update = {key: value for key, value in request.data.items() if key in valid_fields}
+
+    if not fields_to_update:
+        return Response(
+            {"error": "No valid fields to update."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Cập nhật từng trường
+    for field, value in fields_to_update.items():
+        setattr(book, field, value)
+
+    # Lưu thay đổi vào cơ sở dữ liệu
+    try:
+        book.save()
+    except Exception as e:
+        return Response(
+            {"error": f"Failed to update book: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    # Trả về thông tin sách sau khi cập nhật
+    serializer = BookSerializer(book)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+@api_view(['DELETE'])
+# @permission_classes([IsAdminUser])
+def delete_book(request, book_id):
+    """
+    API để xóa sách theo ID.
+    """
+    try:
+        # Lấy sách theo ID
+        book = Book.objects.get(id=book_id)
+    except Book.DoesNotExist:
+        return Response(
+            {"error": "Book not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        # Xóa sách
+        book.delete()
+        return Response(
+            {"message": "Book deleted successfully"},
+            status=status.HTTP_200_OK
+        )
+    except Exception as e:
+        # Xử lý các lỗi không mong muốn
+        return Response(
+            {"error": f"Failed to delete book: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 #CRUD BOOKS
 #ADD BOOKS
 @api_view(['POST'])
@@ -264,8 +336,7 @@ def fetch_books_by_genre(request):
         return Response({"error": "Keyword is required"}, status=400)
 
     added_books = []
-    download_links = []
-    
+
     # Tạo hoặc lấy thể loại từ keyword
     genre, _ = Genre.objects.get_or_create(name=keyword.capitalize())
 
@@ -281,7 +352,7 @@ def fetch_books_by_genre(request):
         books_on_page = 0
 
         for book_data in data['results']:
-            # Tìm kiếm từ khóa trong tiêu đề hoặc mô tả (summary)
+            # Tìm kiếm từ khóa trong tiêu đề hoặc mô tả (subject)
             title = book_data['title'].lower()
             subjects = ", ".join(book_data.get('subjects', [])).lower()
             
@@ -304,7 +375,7 @@ def fetch_books_by_genre(request):
                         'author': author,
                         'download_link': download_link,
                         'image': image_link,
-                        'summary': subjects,
+                        'subject': subjects,
                         'language': language,
                     }
                 )
@@ -317,10 +388,9 @@ def fetch_books_by_genre(request):
                         "title": book.title,
                         "author": book.author,
                         "image": book.image,
-                        "summary": book.summary,
+                        "subject": book.subject,
                         "language": book.language,
                     })
-                    download_links.append(download_link)
                     books_on_page += 1
                     found_books += 1
 
@@ -333,21 +403,8 @@ def fetch_books_by_genre(request):
     if found_books == 0:
         return Response({"error": f"No books found matching keyword '{keyword}' after {max_attempts} attempts."}, status=404)
 
-    # Tạo file txt và lưu các link download
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    file_name = f"downloads_{timestamp}.txt"
-    file_path = os.path.join("app/data", file_name)
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
-        for link in download_links[:size]:  # Ghi đúng số lượng sách được yêu cầu
-            file.write(link + "\n")
-
     return Response({
         "message": f"Successfully fetched {len(added_books)} books matching keyword '{keyword}'",
         "books": added_books,
-        "download_file": file_name,  # Trả về tên file
     }, status=200)
-
-
-
 
