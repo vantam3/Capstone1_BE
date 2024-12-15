@@ -2,8 +2,6 @@
 from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import User
-class Genre(models.Model):
-    name = models.CharField(max_length=100, unique=True)
 
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -17,8 +15,6 @@ class Book(models.Model):
     download_link = models.URLField()
     gutenberg_id = models.IntegerField(unique=True)
     image = models.URLField(default='https://example.com/default-image.jpg', blank=True)
-    summary = models.TextField(null=True, blank=True)
-    note = models.TextField(null=True, blank=True)  # Ghi chú
     credits = models.TextField(null=True, blank=True)  # Credits của sách
     isbn = models.CharField(max_length=13, unique=True, null=True, blank=True)
     language = models.CharField(max_length=20, null=True, blank=True)
@@ -38,13 +34,33 @@ class Review(models.Model):
     def __str__(self):
         return f"Review for {self.book.title} - Rating: {self.rating}"
     
-class BookCreation(models.Model):
-    title = models.CharField(max_length=255)  # Tên sách
-    author = models.CharField(max_length=255)  # Tác giả
-    genre = models.CharField(max_length=100)  # Thể loại 
-    description = models.TextField()  # Mô tả
-    text = models.TextField()  # Nội dung
+class UserBook(models.Model):
+    GENRE_CHOICES = [
+        ('fiction', 'Fiction'),
+        ('non-fiction', 'Non-fiction'),
+        ('fantasy', 'Fantasy'),
+        ('science', 'Science'),
+        ('history', 'History'),
+    ]
+    
+    title = models.CharField(max_length=500)
+    author = models.CharField(max_length=255)
+    genre = models.CharField(max_length=50, choices=GENRE_CHOICES, default='fiction')
+    description = models.TextField()
+    content = models.TextField()  # Text content of the book
+    cover_image = models.ImageField(upload_to='book_covers/', null=True, blank=True)
+    is_approved = models.BooleanField(default=False)  # Admin approval status
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Link to the user who created the book
+    original_book = models.ForeignKey('Book', on_delete=models.CASCADE, related_name="user_books", null=True, blank=True)
 
     def __str__(self):
         return self.title
+
+
+
+
+
+
+
+
 

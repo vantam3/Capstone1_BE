@@ -1,23 +1,22 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
-from rest_framework import generics, status
-from .serializers import BookSerializer, ReviewSerializer, BookCreationSerializer
-from rest_framework.filters import SearchFilter
-from .models import Book, Genre
+from rest_framework import status
+from .serializers import BookSerializer, ReviewSerializer, UserBookSerializer
+from .models import Book, Genre, UserBook
 import requests
 from bs4 import BeautifulSoup
 from rest_framework.decorators import api_view
 import random
 import os
 import string
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from datetime import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
@@ -127,7 +126,7 @@ def is_admin(user):
 def admin_dashboard(request):
     if is_admin(request.user):
         return Response({'message': 'Welcome Admin!'}, status=status.HTTP_200_OK)
-    return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    return Response({'message': 'Welcome User!'}, status=200)
 
 @api_view(['GET'])
 def search_books(request):
@@ -227,17 +226,51 @@ def get_book_reviews(request, book_id):
     reviews = book.reviews.all()
     serializer = ReviewSerializer(reviews, many=True)
     return Response(serializer.data)
-class BookCreationAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        # Deserialize the incoming JSON data
-        serializer = BookCreationSerializer(data=request.data)
+
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+#Tạo sách
+@api_view(['POST'])
+def create_user_book(request):
+    if request.method == 'POST':
+        serializer = UserBookSerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
-            serializer.save()  # Save valid data to the database
-            return Response({"message": "Book created successfully!", "data": serializer.data}, status=status.HTTP_201_CREATED)
-        
-        # Return validation errors
-        return Response({"error": "Failed to create book", "details": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)   
+            try:
+                serializer.save()
+                logger.info(f"Book created successfully: {serializer.data}")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.error(f"Error saving book: {str(e)}")
+                return Response({"detail": "Error saving the book to the database."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            logger.warning(f"Validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def list_user_books(request):
+    # Fetch all unapproved books
+    books = UserBook.objects.filter(is_approved=False)
+    serializer = UserBookSerializer(books, many=True)
+    return Response(serializer.data)
+
+@api_view(['PUT'])
+@permission_classes([IsAdminUser])
+def approve_user_book(request, book_id):
+    # Fetch the book to be approved
+    book = UserBook.objects.filter(id=book_id, is_approved=False).first()
+
+    if not book:
+        return Response({"error": "Book not found or already approved"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Set the book as approved
+    book.is_approved = True
+    book.save()
+    
+    return Response({"message": f"Book '{book.title}' approved successfully."}, status=status.HTTP_200_OK) 
 
     # admin
      

@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Book, Review, Genre, BookCreation
+from .models import Book, Review, Genre, UserBook
+from django.core.exceptions import ValidationError
+import logging 
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -45,7 +47,27 @@ class BookSerializer(serializers.ModelSerializer):
             'create_at', 
             'reviews'  
         ]
-class BookCreationSerializer(serializers.ModelSerializer):
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+class UserBookSerializer(serializers.ModelSerializer):
     class Meta:
-        model = BookCreation
-        fields = ['id', 'title', 'author', 'genre', 'description', 'text',]        
+        model = UserBook
+        fields = ['title', 'author', 'genre', 'description', 'content', 'cover_image', 'is_approved', 'user', 'original_book']
+
+    def validate_cover_image(self, value):
+        if value and value.size > 5 * 1024 * 1024:
+            logger.warning(f"Cover image size exceeds limit: {value.size}")  # Log warning if image size exceeds limit
+            raise ValidationError("Image size should not exceed 5MB.")
+        return value
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        validated_data['author'] = f"{user.first_name} {user.last_name}"  # Set author to user's name
+        validated_data['user'] = user  # Automatically set the user
+        try:
+            logger.info(f"Creating book with validated data: {validated_data}")
+            return super().create(validated_data)
+        except Exception as e:
+            logger.error(f"Error during book creation: {str(e)}")
+            raise ValidationError("Failed to create the book.")
