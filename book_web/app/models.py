@@ -59,3 +59,21 @@ class Embedding(models.Model):
         """Truy xuất numpy.array từ binary"""
         return pickle.loads(self.vector)
 
+class FavoriteBook(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="favorite_books")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    
+    class Meta:
+        unique_together = ('user', 'book')  # Ensure a book is only favorited once by a user
+
+    def __str__(self):
+        return f'{self.user.username} - {self.book.title}'
+    
+    
+class ReadingHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reading_history')
+    book = models.ForeignKey('Book', on_delete=models.CASCADE, related_name='history')
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} read {self.book.title}"

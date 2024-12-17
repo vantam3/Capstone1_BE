@@ -154,6 +154,9 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Thời gian sống của access token
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # Thời gian sống của refresh token
+    'ROTATE_REFRESH_TOKENS': True,  # Tùy chọn quay lại refresh token sau mỗi yêu cầu
+    'BLACKLIST_AFTER_ROTATION': True,  # Xóa refresh token cũ sau khi quay lại
+    'UPDATE_LAST_LOGIN': True,  # Cập nhật thời gian đăng nhập cuối cùng
 }

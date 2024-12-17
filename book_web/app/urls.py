@@ -1,6 +1,6 @@
 # app/urls.py
 from .views import RegisterView, LoginView, LogoutView
-from django.urls import path
+from django.urls import path,include
 from . import views
 from .views import search_books
 from .views import list_users, list_books
@@ -8,6 +8,7 @@ from .views import create_user, update_user, delete_user
 from .views import admin_dashboard, book_statistics, user_roles_statistics
 from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields,delete_book
 from .recommend_view import RecommendBooksAPIView
+from rest_framework.routers import DefaultRouter
 
 
 
@@ -39,6 +40,18 @@ urlpatterns = [
     #Recommend Book
     path('api/recommend_books/', RecommendBooksAPIView.as_view(), name='recommend_books'),
 
+
+    path('user/profile/<int:user_id>/', views.get_user_profile, name='get-user-profile'),
+    path('api/user/profile/update/<int:user_id>/', views.update_user_profile, name='update_user'),
+    path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
+    
+    path('api/favorites/add_to_favorites/', views.add_to_favorites, name='add_to_favorites'),
+    path('api/favorites/remove_from_favorites/', views.remove_from_favorites, name='remove_from_favorites'),
+    path('api/favorites/', views.get_favorites, name='get_favorites'),
+    path('api/reading-history/add/', views.add_to_reading_history, name="add_to_reading_history"),
+    path('api/reading-history/', views.get_reading_history, name="reading-history"),
+
+    
     #===============================ADMIN==========================
     path('api/admin/users/', list_users, name='list_users'),
     path('api/admin/books/', list_books, name='list_books'),

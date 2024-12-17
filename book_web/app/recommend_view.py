@@ -26,6 +26,8 @@ def get_user_embedding(text):
     embedding = outputs.last_hidden_state.mean(dim=1).detach().numpy()
     return embedding[0]
 
+import json  # Sử dụng json để xử lý dữ liệu lưu dưới dạng JSON
+
 class RecommendBooksAPIView(APIView):
     """
     API để gợi ý sách dựa trên sở thích người dùng, trả về thông tin sách và điểm tương đồng.
@@ -48,9 +50,18 @@ class RecommendBooksAPIView(APIView):
             embeddings = []
             books = []
             for embedding in Embedding.objects.all():
-                vector = pickle.loads(embedding.vector)  # Giải mã nhị phân
-                embeddings.append(vector)
-                books.append(embedding.book)
+                try:
+                    # Giải mã JSON vector
+                    vector = json.loads(embedding.vector)
+                    embeddings.append(vector)
+                    books.append(embedding.book)
+                except Exception as e:
+                    # Bỏ qua dữ liệu không hợp lệ và log lỗi
+                    print(f"Error decoding embedding {embedding.id}: {str(e)}")
+
+            # Kiểm tra nếu không có dữ liệu hợp lệ
+            if not embeddings:
+                return Response({"error": "No valid embeddings found in the database"}, status=500)
 
             # Chuyển danh sách embedding thành numpy array
             embeddings_array = np.array(embeddings)
@@ -80,3 +91,4 @@ class RecommendBooksAPIView(APIView):
             return Response(response_data)
         except Exception as e:
             return Response({"error": f"Failed to fetch recommendations: {str(e)}"}, status=500)
+

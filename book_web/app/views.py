@@ -2,7 +2,7 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from rest_framework import generics, status
-from .serializers import BookSerializer, ReviewSerializer
+from .serializers import BookSerializer, ReviewSerializer,FavoriteBook,FavoriteBookSerializer,ReadingHistorySerializer
 from rest_framework.filters import SearchFilter
 from .models import Book, Genre
 import requests
@@ -19,6 +19,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Avg
 
 
 def home(request):
@@ -98,6 +99,7 @@ class LogoutView(APIView):
 def is_admin(user):
     return user.is_authenticated and user.is_superuser  
 
+
 @permission_classes([IsAuthenticated])
 @api_view(['GET'])
 def admin_dashboard(request):
@@ -133,8 +135,18 @@ def all_books(request):
 @api_view(['GET'])
 def book_detail_view(request, book_id):
     book = get_object_or_404(Book, id=book_id)
+    
+    # Tính toán trung bình rating từ các review của sách
+    average_rating = book.reviews.aggregate(Avg('rating'))['rating__avg'] or 0
+    
+    # Serialize dữ liệu của sách
     serializer = BookSerializer(book)
-    return Response(serializer.data)
+    
+    # Cập nhật thêm trường average_rating vào dữ liệu trả về
+    book_data = serializer.data
+    book_data['average_rating'] = round(average_rating, 1)  # Làm tròn trung bình rating
+    
+    return Response(book_data)
 
 
 @api_view(['GET'])
@@ -205,6 +217,195 @@ def get_book_reviews(request, book_id):
     return Response(serializer.data)
     
     
+#edit profile
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # Chỉ cho phép người dùng đã xác thực truy cập
+def get_user_profile(request, user_id):
+    # In ra ID của người dùng đăng nhập (để debug)
+    print(f"Logged in user ID: {request.user.id}")
+
+    # Kiểm tra xem user_id trong URL có giống với user ID của người dùng đang đăng nhập không
+    if request.user.id != int(user_id):  # Chuyển user_id sang kiểu int
+        return Response({"error": "You can only view your own profile."}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user = User.objects.get(pk=user_id)  # Lấy người dùng từ DB bằng user_id
+    except User.DoesNotExist:
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Trả về thông tin người dùng
+    response_data = {
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email
+    }
+
+    return Response(response_data, status=status.HTTP_200_OK)
+
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_user_profile(request, user_id):
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data
+    user.first_name = data.get('first_name', user.first_name)
+    user.last_name = data.get('last_name', user.last_name)
+    user.email = data.get('email', user.email)
+    
+    # Cập nhật mật khẩu nếu có
+    if 'password' in data:
+        user.set_password(data['password'])
+
+    user.save()
+
+    return Response({
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email
+    }, status=status.HTTP_200_OK)
+
+#change password
+from rest_framework import views  # Import views từ rest_framework
+from .serializers import ChangePasswordSerializer  # Import serializer từ file serializers.py
+class ChangePasswordView(views.APIView):
+    permission_classes = [IsAuthenticated]  # Chỉ người dùng đã đăng nhập mới có thể thay đổi mật khẩu
+    
+    def put(self, request):
+        user = request.user  # Lấy thông tin người dùng từ request (yêu cầu phải đăng nhập)
+        data = request.data
+        serializer = ChangePasswordSerializer(data=data)
+        
+        if serializer.is_valid():
+            old_password = serializer.validated_data["old_password"]
+            new_password = serializer.validated_data["new_password"]
+            confirm_password = serializer.validated_data["confirm_password"]
+
+            # Kiểm tra mật khẩu cũ có đúng không
+            if not user.check_password(old_password):
+                return Response({"error": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Kiểm tra mật khẩu mới và xác nhận mật khẩu có khớp không
+            if new_password != confirm_password:
+                return Response({"error": "Passwords do not match."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Cập nhật mật khẩu mới
+            user.set_password(new_password)
+            user.save()
+            
+            return Response({"success": "Password changed successfully."}, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+################################################################################
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from .models import FavoriteBook, Book
+from django.contrib.auth.models import User
+
+@api_view(['POST'])
+def add_to_favorites(request):
+    # Xác nhận người dùng đã đăng nhập
+    if not request.user.is_authenticated:
+        return Response({"error": "User is not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    book_id = request.data.get('book_id')
+    if not book_id:
+        return Response({"error": "Book ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        book = Book.objects.get(id=book_id)
+        user = request.user
+
+        # Kiểm tra nếu sách đã được yêu thích bởi người dùng
+        if FavoriteBook.objects.filter(user=user, book=book).exists():
+            return Response({"message": "Book already added to favorites!"}, status=status.HTTP_200_OK)
+
+        # Thêm sách vào danh sách yêu thích của người dùng
+        FavoriteBook.objects.create(user=user, book=book)
+        return Response({"message": "Book added to favorites!"}, status=status.HTTP_200_OK)
+
+    except Book.DoesNotExist:
+        return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    
+#history user
+from .models import Book, ReadingHistory
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_to_reading_history(request):
+    book_id = request.data.get('book_id')
+    if not book_id:
+        return Response({"error": "Book ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        book = Book.objects.get(id=book_id)
+        ReadingHistory.objects.create(user=request.user, book=book)
+        return Response({"message": "Book added to reading history"}, status=status.HTTP_201_CREATED)
+    except Book.DoesNotExist:
+        return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
+   
+   
+ 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_reading_history(request):
+    """
+    API để lấy lịch sử đọc của người dùng hiện tại.
+    """
+    user = request.user
+    history = ReadingHistory.objects.filter(user=user).order_by('-read_at')  # Lịch sử gần nhất trước
+    serializer = ReadingHistorySerializer(history, many=True)
+    return Response(serializer.data)
+
+# Trong views.py
+@api_view(['GET'])
+def get_favorites(request):
+    if not request.user.is_authenticated:
+        return Response({"error": "User is not authenticated"}, status=401)
+
+    # Lấy danh sách sách yêu thích của người dùng
+    favorite_books = FavoriteBook.objects.filter(user=request.user)
+    books = [favorite_book.book for favorite_book in favorite_books]
+
+    # Chuyển dữ liệu thành định dạng JSON
+    serializer = BookSerializer(books, many=True)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+def remove_from_favorites(request):
+    if not request.user.is_authenticated:
+        return Response({"error": "User is not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    book_id = request.data.get('book_id')
+    
+    if not book_id:
+        return Response({"error": "Book ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Tìm sách bằng book_id
+        book = Book.objects.get(id=book_id)
+
+        # Tìm đối tượng FavoriteBook để xóa
+        user = request.user
+        favorite = FavoriteBook.objects.filter(user=user, book=book).first()
+
+        if favorite:
+            favorite.delete()  # Xóa khỏi danh sách yêu thích
+            return Response({"message": "Book removed from favorites!"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Book is not in favorites."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Book.DoesNotExist:
+        return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 # tim so thich nguoi dung
 
     
