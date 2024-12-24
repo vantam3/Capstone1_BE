@@ -77,3 +77,26 @@ class ReadingHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.username} read {self.book.title}"
+    
+    
+class UserBook(models.Model):
+    GENRE_CHOICES = [
+        ('fiction', 'Fiction'),
+        ('non-fiction', 'Non-fiction'),
+        ('fantasy', 'Fantasy'),
+        ('science', 'Science'),
+        ('history', 'History'),
+    ]
+    
+    title = models.CharField(max_length=500)
+    author = models.CharField(max_length=255)
+    genre = models.CharField(max_length=50, choices=GENRE_CHOICES, default='fiction')
+    description = models.TextField()
+    content = models.TextField()  # Text content of the book
+    cover_image = models.ImageField(upload_to='book_covers/', null=True, blank=True)
+    is_approved = models.BooleanField(default=False)  # Admin approval status
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Link to the user who created the book
+    original_book = models.ForeignKey('Book', on_delete=models.CASCADE, related_name="user_books", null=True, blank=True)
+
+    def __str__(self):
+        return self.title
