@@ -160,3 +160,17 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,  # Xóa refresh token cũ sau khi quay lại
     'UPDATE_LAST_LOGIN': True,  # Cập nhật thời gian đăng nhập cuối cùng
 }
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'  
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'bookquest.system@gmail.com'  
+EMAIL_HOST_PASSWORD = 'mcit hiaa uwei pagi'  
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
