@@ -2,11 +2,11 @@
 from .views import RegisterView, LoginView, LogoutView
 from django.urls import path,include
 from . import views
-from .views import search_books
+from .views import search_books, ForgotPasswordView, ResetPasswordView, CreateUserBookView, ListUserBooksView, ApproveUserBookView
 from .views import list_users, list_books
 from .views import create_user, update_user, delete_user
 from .views import admin_dashboard, book_statistics, user_roles_statistics
-from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields,delete_book
+from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields, delete_book
 from .recommend_view import RecommendBooksAPIView
 from rest_framework.routers import DefaultRouter
 
@@ -20,8 +20,15 @@ urlpatterns = [
     path('api/login/', LoginView.as_view(), name='login'),
     #Đăng xuất
     path('api/logout/', LogoutView.as_view(), name='logout'),
+    #Quên mật khẩu
+    path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('api/reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     #Tìm sách
     path('api/search-books/', search_books, name='search-books'), 
+    #Tạo sách
+    path('api/create-user-book/', CreateUserBookView.as_view(), name='create_user_book'),
+    path('api/list-user-books/', ListUserBooksView.as_view(), name='list_user_books'),
+    path('api/approve-user-book/<int:book_id>/', ApproveUserBookView.as_view(), name='approve_user_book'),
     #Trang Admin:
     path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
     path('api/book-statistics/', book_statistics, name='book-statistics'),

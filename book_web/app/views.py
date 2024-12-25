@@ -1,15 +1,16 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse, JsonResponse
-from rest_framework import generics, status
-from .serializers import BookSerializer, ReviewSerializer,FavoriteBook,FavoriteBookSerializer,ReadingHistorySerializer
+from rest_framework import generics, status, permissions
+from .serializers import BookSerializer, ReviewSerializer,FavoriteBook,FavoriteBookSerializer,ReadingHistorySerializer, ResetPasswordSerializer
 from rest_framework.filters import SearchFilter
-from .models import Book, Genre
+from .models import Book, Genre, UserBook
 import requests
 from bs4 import BeautifulSoup
 from rest_framework.decorators import api_view
 import random
 import os
+import string
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from datetime import datetime
@@ -20,6 +21,8 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Avg
+from django.core.mail import send_mail
+from django.core.cache import cache
 
 
 def home(request):
@@ -95,7 +98,62 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'User with this email does not exist!'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Generate a confirmation code
+        confirmation_code = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+
+        # Store the confirmation code in cache with a timeout (e.g., 10 minutes)
+        cache.set(f"password_reset_code_{email}", confirmation_code, timeout=600)
+
+        try:
+            send_mail(
+                subject="Confirmation Code - Bookquest",
+                message=f"Hello {user.first_name},\n\nYour confirmation code is: {confirmation_code}\nUse this code to reset your password.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            return Response({'message': 'Confirmation code sent to your email!'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': 'Failed to send email. Please try again later.', 'details': str(e)}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class ResetPasswordView(APIView):
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data['email']
+        confirmation_code = serializer.validated_data['confirmation_code']
+        new_password = serializer.validated_data['new_password']
+
+        # Retrieve the confirmation code from cache
+        cached_code = cache.get(f"password_reset_code_{email}")
+
+        if not cached_code or cached_code != confirmation_code:
+            return Response({'error': 'Invalid or expired confirmation code!'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'User with this email does not exist!'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Update the password
+        user.set_password(new_password)
+        user.save()
+
+        # Clear the confirmation code from cache
+        cache.delete(f"password_reset_code_{email}")
+
+        return Response({'message': 'Password has been reset successfully!'}, status=status.HTTP_200_OK)
+            
 def is_admin(user):
     return user.is_authenticated and user.is_superuser  
 
@@ -148,6 +206,70 @@ def book_detail_view(request, book_id):
     
     return Response(book_data)
 
+class CreateUserBookView(APIView):
+    # Require the user to be authenticated
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        # Extract data from the request
+        title = request.data.get('title')
+        genre = request.data.get('genre')
+        description = request.data.get('description')
+        content = request.data.get('text')  
+        cover_image = request.FILES.get('cover_image')  # Get the uploaded file if present
+        
+        # Get the authenticated user from the request
+        user = request.user
+
+        # Combine first_name and last_name for the author field
+        author_name = f"{user.first_name} {user.last_name}".strip()
+
+        # Validate required fields
+        if not title or not genre or not description or not content:
+            return Response({'error': 'All fields are required except cover image.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create a new UserBook entry with is_approved explicitly set to False
+        try:
+            user_book = UserBook.objects.create(
+                title=title,
+                author=author_name,
+                genre=genre,
+                description=description,
+                content=content,
+                cover_image=cover_image,
+                user=user,
+                is_approved=False 
+            )
+            return Response({
+                'message': 'Book created successfully and awaits admin approval!',
+                'book_id': user_book.id
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ListUserBooksView(APIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get(self, request):
+        # Fetch all books that are not approved
+        books = UserBook.objects.filter(is_approved=False)
+        serializer = UserBookSerializer(books, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# API to approve a specific user-submitted book
+class ApproveUserBookView(APIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def put(self, request, book_id):
+        # Fetch the book using its ID
+        book = get_object_or_404(UserBook, id=book_id)
+
+        # Mark the book as approved
+        book.is_approved = True
+        book.save()
+
+        return Response({"message": "Book approved successfully!"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def books_by_author(request, author_name):

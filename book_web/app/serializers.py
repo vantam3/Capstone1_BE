@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Book, Review, Genre, Embedding, FavoriteBook
-from .models import ReadingHistory
+from .models import ReadingHistory, UserBook
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField(read_only=True)  # Hiển thị tên người dùng thay vì ID
@@ -11,7 +11,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Gán user hiện tại vào review
-        request = self.context.get('request')  # Lấy request từ context
+        request = self.conptext.get('request')  # Lấy request từ context
         if request and request.user.is_authenticated:
             validated_data['user'] = request.user
         return super().create(validated_data)
@@ -49,7 +49,10 @@ class BookSerializer(serializers.ModelSerializer):
             avg_rating = sum([review.rating for review in reviews]) / len(reviews)
             return round(avg_rating, 1)
         return 0
-
+class UserBookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserBook
+        fields = ['id', 'title', 'author', 'genre', 'description', 'content', 'cover_image', 'is_approved']
 
 class EmbeddingSerializer(serializers.ModelSerializer):
     book = BookSerializer(read_only=True)  # Sử dụng nested serializer cho sách
@@ -60,7 +63,12 @@ class EmbeddingSerializer(serializers.ModelSerializer):
 
 # serializers.py
 from rest_framework import serializers
+from rest_framework.serializers import Serializer, CharField
 
+class ResetPasswordSerializer(Serializer):
+    email = CharField(required=True)
+    confirmation_code = CharField(required=True)
+    new_password = CharField(required=True)
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
