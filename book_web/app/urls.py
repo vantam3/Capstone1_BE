@@ -49,6 +49,7 @@ urlpatterns = [
     path('api/books/author/<str:author_name>/', views.books_by_author, name='books_by_author'),
 
     # API endpoints for reviews
+    
     path('api/books/<int:book_id>/add_review/', views.add_review, name='add_review'),
     path('api/books/<int:book_id>/reviews/', views.get_book_reviews, name='get_book_reviews'),
     

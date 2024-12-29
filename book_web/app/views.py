@@ -418,7 +418,7 @@ def book_content_by_id(request, book_id):
 
 
 @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def add_review(request, book_id):
     # Lấy sách
     book = get_object_or_404(Book, id=book_id)
