@@ -2,7 +2,7 @@
 from .views import RegisterView, LoginView, LogoutView
 from django.urls import path,include
 from . import views
-from .views import search_books, ForgotPasswordView, ResetPasswordView, CreateUserBookView, ListUserBooksView, ApproveUserBookView
+from .views import search_books, ForgotPasswordView, ResetPasswordView, CreateUserBookView, ListUserBooksView, ApproveUserBookView, RejectAndDeleteBookView
 from .views import list_users, list_books
 from .views import create_user, update_user, delete_user
 from .views import admin_dashboard, book_statistics, user_roles_statistics, rating_statistics, report_statistics
@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/rating-statistics/', rating_statistics, name='rating-statistics'),
     path('api/user-roles-statistics/', user_roles_statistics, name='user-roles-statistics'),
     path('api/report-statistics/', report_statistics, name='report_statistics'),
+    path('api/reject-delete-book/<int:book_id>/', RejectAndDeleteBookView.as_view(), name='reject-delete-book'),
     #xem sach
     path('api/books/', views.all_books, name='all_books'),
     path('api/books/<int:book_id>/', views.book_detail_view, name='book_detail_view'),
