@@ -5,7 +5,7 @@ from . import views
 from .views import search_books, ForgotPasswordView, ResetPasswordView, CreateUserBookView, ListUserBooksView, ApproveUserBookView
 from .views import list_users, list_books
 from .views import create_user, update_user, delete_user
-from .views import admin_dashboard, book_statistics, user_roles_statistics
+from .views import admin_dashboard, book_statistics, user_roles_statistics, rating_statistics, report_statistics
 from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields, delete_book
 from .recommend_view import RecommendBooksAPIView
 from rest_framework.routers import DefaultRouter
@@ -38,7 +38,9 @@ urlpatterns = [
     #Trang Admin:
     path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
     path('api/book-statistics/', book_statistics, name='book-statistics'),
+    path('api/rating-statistics/', rating_statistics, name='rating-statistics'),
     path('api/user-roles-statistics/', user_roles_statistics, name='user-roles-statistics'),
+    path('api/report-statistics/', report_statistics, name='report_statistics'),
     #xem sach
     path('api/books/', views.all_books, name='all_books'),
     path('api/books/<int:book_id>/', views.book_detail_view, name='book_detail_view'),

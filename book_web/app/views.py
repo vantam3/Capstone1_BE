@@ -691,6 +691,95 @@ def user_roles_statistics(request):
     })
 
 @api_view(['GET'])
+def rating_statistics(request):
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT rating, COUNT(*) AS count
+            FROM book_web.app_review
+            GROUP BY rating
+            ORDER BY rating
+        """)
+        rating_data = cursor.fetchall()
+    rates = {row[0]: row[1] for row in rating_data}
+    total_rates = sum(rates.values())
+    weighted_sum = sum(rating * count for rating, count in rates.items())
+    average_rating = round(weighted_sum / total_rates, 2) if total_rates > 0 else 0
+
+    return Response({
+        "rates": rates,
+        "average_rating": average_rating,
+    })
+
+@api_view(['GET'])
+def report_statistics(request):
+    # Tổng số sách
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM app_book;")
+        total_books = cursor.fetchone()[0]
+
+    # Tổng lượt đọc và sách được đọc nhiều nhất
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT book_id, COUNT(*) AS read_count
+            FROM app_readinghistory
+            GROUP BY book_id
+            ORDER BY read_count DESC
+            LIMIT 1;
+        """)
+        most_read_book = cursor.fetchone()
+        total_reads = 0
+        most_read_book_id = None
+        most_read_book_count = 0
+        if most_read_book:
+            most_read_book_id, most_read_book_count = most_read_book
+        
+        # Tổng số lượt đọc
+        cursor.execute("SELECT COUNT(*) FROM app_readinghistory;")
+        total_reads = cursor.fetchone()[0]
+
+    # Tổng số người dùng
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM auth_user;")
+        total_users = cursor.fetchone()[0]
+
+    # Tổng số lượt đánh giá và đánh giá trung bình
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT COUNT(*), AVG(rating)
+            FROM app_review;
+        """)
+        review_stats = cursor.fetchone()
+        total_reviews = review_stats[0]
+        average_rating = review_stats[1] if review_stats[1] is not None else 0
+
+    # Lấy thông tin chi tiết sách được đọc nhiều nhất
+    most_read_book_details = None
+    if most_read_book_id:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, title, author
+                FROM app_book
+                WHERE id = %s;
+            """, [most_read_book_id])
+            most_read_book_details = cursor.fetchone()
+            if most_read_book_details:
+                most_read_book_details = {
+                    "id": most_read_book_details[0],
+                    "title": most_read_book_details[1],
+                    "author": most_read_book_details[2],
+                    "read_count": most_read_book_count,
+                }
+
+    return Response({
+        "total_books": total_books,
+        "total_reads": total_reads,
+        "most_read_book": most_read_book_details,
+        "total_users": total_users,
+        "total_reviews": total_reviews,
+        "average_rating": round(average_rating, 2),
+    })
+
+@api_view(['GET'])
 # @permission_classes([IsAdminUser])
 def list_users(request):
     users = User.objects.all()

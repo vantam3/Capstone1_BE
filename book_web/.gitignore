@@ -10,7 +10,6 @@ db.sqlite3
 *.pot
 *.pyc
 *.pyo
-__pycache__/
 .DS_Store
 
 data/
