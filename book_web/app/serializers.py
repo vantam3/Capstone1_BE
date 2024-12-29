@@ -11,7 +11,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Gán user hiện tại vào review
-        request = self.conptext.get('request')  # Lấy request từ context
+        request = self.context.get('request')  # Lấy request từ context
         if request and request.user.is_authenticated:
             validated_data['user'] = request.user
         return super().create(validated_data)

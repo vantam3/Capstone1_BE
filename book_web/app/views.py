@@ -267,6 +267,21 @@ class ListApprovedBooksView(APIView):
         approved_books = UserBook.objects.filter(is_approved=True)
         serializer = UserBookSerializer(approved_books, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class RejectAndDeleteBookView(APIView):
+
+    def delete(self, request, book_id, *args, **kwargs):
+        user_book = get_object_or_404(UserBook, id=book_id)
+
+        if not user_book.is_approved:  # Sách chưa được duyệt
+            user_book.delete()
+            return Response({
+                "message": f"The book '{user_book.title}' has been rejected and deleted from the database."
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "error": "Only books that are not approved can be rejected and deleted."
+            }, status=status.HTTP_400_BAD_REQUEST)  
 ################################################
 import re
 
@@ -418,7 +433,7 @@ def book_content_by_id(request, book_id):
 
 
 @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated])
 def add_review(request, book_id):
     # Lấy sách
     book = get_object_or_404(Book, id=book_id)
