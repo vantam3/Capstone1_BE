@@ -57,11 +57,10 @@ urlpatterns = [
     #Recommend Book
     path('api/recommend_books/', RecommendBooksAPIView.as_view(), name='recommend_books'),
 
-
+    #personal
     path('user/profile/<int:user_id>/', views.get_user_profile, name='get-user-profile'),
     path('api/user/profile/update/<int:user_id>/', views.update_user_profile, name='update_user'),
     path('change-password/', views.ChangePasswordView.as_view(), name='change_password'),
-    
     path('api/favorites/add_to_favorites/', views.add_to_favorites, name='add_to_favorites'),
     path('api/favorites/remove_from_favorites/', views.remove_from_favorites, name='remove_from_favorites'),
     path('api/favorites/', views.get_favorites, name='get_favorites'),
@@ -88,5 +87,6 @@ urlpatterns = [
 
 
 ]
+
 
 

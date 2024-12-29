@@ -230,8 +230,8 @@ class CreateUserBookView(APIView):
         if not title or not genre or not description or not content:
             return Response({'error': 'All fields are required except cover image.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create a new UserBook entry with is_approved explicitly set to False
         try:
+            # Create a new UserBook entry with is_approved explicitly set to False
             user_book = UserBook.objects.create(
                 title=title,
                 author=author_name,
@@ -242,10 +242,19 @@ class CreateUserBookView(APIView):
                 user=user,
                 is_approved=False 
             )
+
+            # Generate the full URL for the cover image
+            if user_book.cover_image:
+                full_url = request.build_absolute_uri(user_book.cover_image.url)
+                user_book.cover_image.name = full_url  # Save the full URL into the database
+                user_book.save(update_fields=['cover_image'])  # Only update the cover_image field
+
             return Response({
                 'message': 'Book created successfully and awaits admin approval!',
-                'book_id': user_book.id
+                'book_id': user_book.id,
+                'cover_image_url': user_book.cover_image.name  # Return full URL of the image
             }, status=status.HTTP_201_CREATED)
+
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

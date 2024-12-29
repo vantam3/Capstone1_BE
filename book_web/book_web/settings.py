@@ -63,8 +63,9 @@ CORS_ALLOWED_ORIGINS = [
 ]
 import os
 ROOT_URLCONF = 'book_web.urls'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-MEDIA_URL = '/media/'
+MEDIA_URL = '/media/'  # URL để truy cập file media
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Thư mục thực tế để lưu file media
+
 
 
 TEMPLATES = [
