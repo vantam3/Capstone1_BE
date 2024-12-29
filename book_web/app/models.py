@@ -12,7 +12,7 @@ class Genre(models.Model):
 class Book(models.Model):
     title = models.CharField(max_length=500)
     author = models.CharField(max_length=255, null=True, blank=True)
-    download_link = models.URLField()
+    download_link = models.TextField(null=True, blank=True)  # Lưu cả URL hoặc nội dung sách
     gutenberg_id = models.IntegerField(unique=True)
     image = models.URLField(default='https://example.com/default-image.jpg', blank=True)
     subject = models.TextField(null=True, blank=True)  # Đổi tên từ summary sang subject
@@ -84,6 +84,8 @@ class UserBook(models.Model):
         ('fantasy', 'Fantasy'),
         ('science', 'Science'),
         ('history', 'History'),
+        ('other', 'Other'),
+
     ]
     
     title = models.CharField(max_length=500)

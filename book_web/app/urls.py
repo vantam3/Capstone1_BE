@@ -9,6 +9,8 @@ from .views import admin_dashboard, book_statistics, user_roles_statistics
 from .views import create_user, update_user, delete_user,fetch_books_by_genre, edit_book_fields, delete_book
 from .recommend_view import RecommendBooksAPIView
 from rest_framework.routers import DefaultRouter
+from .views import ListApprovedBooksView
+
 
 
 
@@ -28,7 +30,11 @@ urlpatterns = [
     #Tạo sách
     path('api/create-user-book/', CreateUserBookView.as_view(), name='create_user_book'),
     path('api/list-user-books/', ListUserBooksView.as_view(), name='list_user_books'),
-    path('api/approve-user-book/<int:book_id>/', ApproveUserBookView.as_view(), name='approve_user_book'),
+    path('api/approve-user-book/<int:user_book_id>/', ApproveUserBookView.as_view(), name='approve-user-book'),
+    
+    path('api/list-approved-books/', ListApprovedBooksView.as_view(), name='list-approved-books'),
+
+    
     #Trang Admin:
     path('api/admin_dashboard/', admin_dashboard, name='admin_dashboard'),
     path('api/book-statistics/', book_statistics, name='book-statistics'),

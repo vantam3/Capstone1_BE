@@ -23,6 +23,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Avg
 from django.core.mail import send_mail
 from django.core.cache import cache
+from .serializers import UserBookSerializer
+from django.db.models import Max
 
 
 def home(request):
@@ -256,21 +258,133 @@ class ListUserBooksView(APIView):
         serializer = UserBookSerializer(books, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class ListApprovedBooksView(APIView):
+    """
+    API to list all approved books (is_approved=True).
+    """
+    def get(self, request):
+        # Lấy tất cả các sách đã được duyệt
+        approved_books = UserBook.objects.filter(is_approved=True)
+        serializer = UserBookSerializer(approved_books, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+################################################
+import re
 
+def is_valid_url(string):
+    """
+    Kiểm tra xem chuỗi có phải là URL hợp lệ hay không.
+    """
+    regex = re.compile(
+        r'^(http|https)://'  # Chỉ chấp nhận http:// hoặc https://
+        r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}'  # Tên miền
+        r'(:[0-9]{1,5})?'  # Tùy chọn cổng
+        r'(/.*)?$',  # Đường dẫn tùy chọn
+        re.IGNORECASE,
+    )
+    return re.match(regex, string) is not None
+from django.db.models import Min
+
+def generate_unique_negative_gutenberg_id():
+    """
+    Tạo giá trị âm duy nhất cho gutenberg_id.
+    """
+    # Lấy giá trị nhỏ nhất của gutenberg_id hiện tại
+    min_id = Book.objects.aggregate(Min('gutenberg_id'))['gutenberg_id__min']
+    if min_id is None or min_id >= 0:  # Nếu không có ID âm hoặc không có sách nào
+        return -1  # Bắt đầu với -1
+    return min_id - 1  # Giảm thêm 1 để tạo ID mới
+
+
+from datetime import datetime
+
+def map_userbook_to_book(user_book):
+    """
+    Ánh xạ dữ liệu từ UserBook sang Book.
+    """
+    download_link = user_book.content
+
+    # Xử lý `download_link` (nếu là URL, giữ nguyên; nếu là nội dung sách, định dạng lại)
+    if is_valid_url(download_link):
+        formatted_link = download_link
+    else:
+        formatted_link = f"Content: {download_link}"  # Đánh dấu nội dung là text
+
+    return {
+        "title": user_book.title,
+        "author": user_book.author,
+        "download_link": formatted_link,
+        "image": user_book.cover_image or "/default-cover.jpg",
+        "subject": user_book.description or "No description available",
+        "create_at": datetime.now(),
+    }
+from django.db.models import Max
+from datetime import datetime
+from app.models import Book, UserBook, Genre
+
+def get_community_creations_genre():
+    """
+    Lấy hoặc tạo thể loại 'Community Creations' trong bảng Genre.
+    """
+    genre, _ = Genre.objects.get_or_create(name="Community Creations")
+    return genre
+
+def approve_user_book(user_book_id):
+    """
+    Phê duyệt sách từ UserBook và thêm vào app_book với gutenberg_id âm.
+    """
+    try:
+        user_book = UserBook.objects.get(id=user_book_id)
+
+        if not user_book.is_approved:
+            user_book.is_approved = True
+            user_book.save()
+
+        # Gán gutenberg_id âm duy nhất
+        gutenberg_id = generate_unique_negative_gutenberg_id()
+
+        # Tạo sách mới trong app_book
+        book = Book.objects.create(
+            title=user_book.title,
+            author=user_book.author,
+            gutenberg_id=generate_unique_negative_gutenberg_id(),  # Gọi hàm tạo ID âm
+            download_link=user_book.content,
+            image=user_book.cover_image or "/default-cover.jpg",
+            subject=user_book.description or "No description available",
+            create_at=datetime.now(),
+        )
+
+        # Gắn thể loại "Community Creations"
+        community_genre, _ = Genre.objects.get_or_create(name="Community Creations")
+        book.genres.add(community_genre)
+
+        return {"status": "success", "message": "Book approved and added to Community Creations."}
+    except UserBook.DoesNotExist:
+        return {"status": "error", "message": "User book not found."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+##########
 # API to approve a specific user-submitted book
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+
 class ApproveUserBookView(APIView):
     permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
 
-    def put(self, request, book_id):
-        # Fetch the book using its ID
-        book = get_object_or_404(UserBook, id=book_id)
+    def put(self, request, user_book_id):
+        result = approve_user_book(user_book_id)  # Gọi hàm xử lý
+        if result["status"] == "success":
+            return Response({"message": result["message"]}, status=status.HTTP_200_OK)
+        return Response({"message": result["message"]}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Mark the book as approved
-        book.is_approved = True
-        book.save()
 
-        return Response({"message": "Book approved successfully!"}, status=status.HTTP_200_OK)
 
+
+
+
+#########################################
 @api_view(['GET'])
 def books_by_author(request, author_name):
     books = Book.objects.filter(author__icontains=author_name)
@@ -280,34 +394,27 @@ def books_by_author(request, author_name):
 @api_view(['GET'])
 def book_content_by_id(request, book_id):
     book = get_object_or_404(Book, id=book_id)
-    content_text = "No content available"
 
-    if book.download_link:
+    # Kiểm tra nếu linkdownload là URL
+    if book.download_link.startswith("http://") or book.download_link.startswith("https://"):
         try:
             response = requests.get(book.download_link)
             if response.status_code == 200:
-                content_type = response.headers.get('Content-Type', '')
-
-                if 'text/html' in content_type:
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    for img_tag in soup.find_all('img'):
-                        img_src = img_tag.get('src')
-                        if img_src and img_src.startswith('//'):
-                            img_tag['src'] = 'https:' + img_src
-
-                    content_text = str(soup)
-                else:
-                    content_text = f"<pre>{response.text}</pre>"
+                content_text = response.text  # Nội dung từ URL
             else:
-                content_text = f"Failed to fetch content, status code: {response.status_code}"
-        except Exception as e:
-            content_text = f"Error fetching content: {e}"
+                content_text = "No content available"  # Nội dung mặc định nếu không tải được
+        except Exception:
+            content_text = "No content available"  # Nội dung mặc định khi có lỗi
+    else:
+        # Nếu không phải URL, sử dụng trực tiếp nội dung từ linkdownload
+        content_text = book.download_link or "No content available"
 
     return Response({
         'title': book.title,
         'author': book.author,
         'content': content_text,
     })
+
 
 
 @api_view(['POST'])
