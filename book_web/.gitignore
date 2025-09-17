@@ -1,5 +1,9 @@
+# Python cache files
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
+*.pyo
 # Ignore environment files
 .env
 # Ignore database files
@@ -13,3 +17,4 @@ db.sqlite3
 .DS_Store
 
 data/
+media/
