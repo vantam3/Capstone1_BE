@@ -10,6 +10,7 @@ from .views import create_user, update_user, delete_user,fetch_books_by_genre, e
 from .recommend_view import RecommendBooksAPIView
 from rest_framework.routers import DefaultRouter
 from .views import ListApprovedBooksView
+from .chatbot_view import ChatbotAPIView, chatbot_conversation, multi_turn_chat
 
 
 
@@ -83,6 +84,12 @@ urlpatterns = [
     #edit,delete book
     path('api/books/<int:pk>/edit/', edit_book_fields, name='edit-book-fields'),
     path('api/books/<int:book_id>/delete/',delete_book, name='delete_book'),
+    
+    #===============================CHATBOT==========================
+    # Chatbot API endpoints
+    path('api/chatbot/', ChatbotAPIView.as_view(), name='chatbot'),
+    path('api/chatbot/conversation/', chatbot_conversation, name='chatbot_conversation'),
+    path('api/chatbot/multi-turn/', multi_turn_chat, name='multi_turn_chat'),
 
 
 
